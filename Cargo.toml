@@ -1,5 +1,5 @@
 [package]
-name = "scraper_client"
+name = "rtcv_scraper_client"
 version = "0.1.0"
 edition = "2021"
 
