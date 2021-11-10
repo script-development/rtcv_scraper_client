@@ -24,3 +24,9 @@ custom scraper <> rtcv_scraper_client (this project) <> RT-CV
 - Handle authentication
 - Handle secrets
 - Remember the reference numbers of the scraped data
+
+## Example inputs
+
+```json
+{"type":"credentials","content":{"server_location":"http://localhost:4000","api_key_id":"111111111111111111111111","api_key":"ddd"}}
+```
