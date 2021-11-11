@@ -28,11 +28,100 @@ custom scraper <> rtcv_scraper_client (this project) <> RT-CV
     - [ ] Set
 - [ ] Remember the reference numbers of the scraped data
 
-## Example inputs
+## Methods
+
+### `set_credentials`
+
+Set credentials and let the clint know where the server is
+
+Example input
+
+```json
+{"type":"set_credentials","content":{"server_location":"http://localhost:4000","api_key_id":"111111111111111111111111","api_key":"ddd"}}
+```
+
+Ok Response
+
+```json
+{"type":"ok"}
+```
+
+### `send_cv`
+
+Send a scraped CV to RT-CV
+
+Example input
+
+```json
+{"type":"send_cv","content":{"reference_number":"abcd","..":".."}}
+```
+
+Ok Response
+
+```json
+{"type":"ok"}
+```
+
+### `get_secret`
+
+Get a user defined secret from the server
+
+Example input
+
+```json
+{"type":"get_secret","content":"encryption_key":"my-very-secret-encryption-key", "key":"key-of-value"}}
+```
+
+Ok Response
 
 ```jsonc
-// stdin:
-{"type":"set_credentials","content":{"server_location":"http://localhost:4000","api_key_id":"111111111111111111111111","api_key":"ddd"}}
-// stdout:
-{"type":"error_auth","content":"auth header is invalid"}
+{"type":"ok","content":{/*Based on the content stored in the secret value*/}}
+```
+
+### `get_users_secret`
+
+Get a secret from the server where the contents is a strictly defined list of users
+
+Example input
+
+```json
+{"type":"get_users_secret","content":{"encryption_key":"my-very-secret-encryption-key", "key":"users"}}
+```
+
+Ok Response
+
+```json
+{"type":"ok","content":[{"username":"foo","password":"foo"},{"username":"bar","password":"bar"}]}
+```
+
+### `get_user_secret`
+
+Get a secret from the server where the contents is a strictly defined user
+
+Example input
+
+```json
+{"type":"get_user_secret","content":{"encryption_key":"my-very-secret-encryption-key", "key":"user"}}
+```
+
+Ok Response
+
+```json
+{"type":"ok","content":{"username":"foo","password":"bar"}}
+```
+
+### `ping`
+
+Send a ping message to the server and the server will respond with a pong
+
+Example input
+
+```json
+{"type":"ping"}
+```
+
+Ok Response
+
+```json
+{"type":"pong"}
 ```

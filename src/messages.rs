@@ -1,4 +1,4 @@
-use crate::api::UserSecret;
+use crate::rtcv_types::UserSecret;
 use serde::{Deserialize, Serialize};
 use serde_json::{Error as JsonError, Value as JsonValue};
 

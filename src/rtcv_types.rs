@@ -42,3 +42,9 @@ pub struct ScanCvBody {
 pub struct ScanCvResponse {
     pub success: bool,
 }
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct UserSecret {
+    username: String,
+    password: String,
+}

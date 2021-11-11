@@ -1,9 +1,9 @@
 use crate::messages::InSetCredentials;
-use crate::rtcv_types::ErrorResponse;
+use crate::rtcv_types::{ErrorResponse, UserSecret};
 use core::fmt::Write;
 use http_types::{Method, Url};
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sha2::{Digest, Sha512};
 use surf::RequestBuilder;
 
@@ -146,10 +146,4 @@ impl Api {
             None => Err("no user found".to_string()),
         }
     }
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct UserSecret {
-    username: String,
-    password: String,
 }
