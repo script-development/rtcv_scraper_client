@@ -1,11 +1,11 @@
-mod messages;
-mod rtcv_types;
+pub mod api;
+pub mod messages;
+pub mod rtcv_types;
 
-use core::fmt::Write;
-use messages::{InCredentials, InMessages, OutMessages};
-use rtcv_types::{ApiKeyInfo, ErrorResponse, GetStatusResponse};
-use serde::de::DeserializeOwned;
-use sha2::{Digest, Sha512};
+use api::Api;
+use messages::{InMessages, OutMessages};
+use rtcv_types::{ApiKeyInfo, GetStatusResponse};
+use serde_json::Value as JsonValue;
 use std::io;
 
 #[async_std::main]
@@ -13,6 +13,7 @@ async fn main() -> std::io::Result<()> {
     OutMessages::Ready(String::from("waiting for credentials")).print();
 
     let mut buffer = String::new();
+    let mut api = Api::new();
 
     loop {
         buffer.clear();
@@ -25,58 +26,64 @@ async fn main() -> std::io::Result<()> {
             Ok(v) => v,
         };
 
-        handle_in_message(input).await.print();
+        handle_in_message(input, &mut api).await.print();
     }
 }
 
-async fn handle_in_message(input: InMessages) -> OutMessages {
+async fn handle_in_message(input: InMessages, api: &mut Api) -> OutMessages {
     match input {
-        InMessages::Credentials(credentials) => {
-            let url = format!("{}/api/v1/health", credentials.server_location);
-            let health_req: Result<GetStatusResponse, String> = get_request(url, None).await;
+        InMessages::SetCredentials(credentials) => {
+            if let Err(err) = api.set_credentials(credentials) {
+                return OutMessages::ErrorAuth(err);
+            }
+
+            let health_req: Result<GetStatusResponse, String> = api.get("/api/v1/health").await;
             if let Err(err) = health_req {
                 return OutMessages::ErrorAuth(err.to_string());
             }
 
-            let url = format!("{}/api/v1/auth/keyinfo", credentials.server_location);
-            let key_info_req: Result<ApiKeyInfo, String> =
-                get_request(url, Some(credentials)).await;
-            if let Err(err) = key_info_req {
-                return OutMessages::ErrorAuth(err.to_string());
+            let key_info_res: Result<ApiKeyInfo, String> = api.get("/api/v1/auth/keyinfo").await;
+            let key_info = match key_info_res {
+                Err(err) => return OutMessages::ErrorAuth(err.to_string()),
+                Ok(v) => v,
+            };
+            let mut has_scraper_role = false;
+            for role in key_info.roles {
+                if role.is_scraper() {
+                    has_scraper_role = true;
+                    break;
+                }
+            }
+            if !has_scraper_role {
+                let err_msg = "provided key does not have scraper role (nr 1)";
+                return OutMessages::ErrorAuth(String::from(err_msg));
             }
 
             OutMessages::Ok
         }
+        InMessages::GetSecret(args) => {
+            let key = match &args.key {
+                Some(v) => v.as_str(),
+                None => return OutMessages::ErrorInvalidInput(String::from("key is required")),
+            };
+            match api.get_secret::<JsonValue>(&args.encryption_key, key).await {
+                Ok(v) => OutMessages::Secret(v),
+                Err(err) => OutMessages::ErrorApi(err),
+            }
+        }
+        InMessages::GetUsersSecret(args) => {
+            match api.get_users_secret(&args.encryption_key, args.key).await {
+                Ok(v) => OutMessages::UsersSecret(v),
+                Err(err) => OutMessages::ErrorApi(err),
+            }
+        }
+        InMessages::GetUserSecret(args) => {
+            match api.get_user_secret(&args.encryption_key, args.key).await {
+                Ok(v) => OutMessages::UserSecret(v),
+                Err(err) => OutMessages::ErrorApi(err),
+            }
+        }
+        InMessages::SendCv(cv) => api.post(path: &str),
         InMessages::Ping => OutMessages::Pong,
     }
-}
-
-async fn get_request<T: DeserializeOwned>(
-    uri: impl AsRef<str>,
-    credentials: Option<InCredentials>,
-) -> Result<T, String> {
-    let mut req = surf::get(uri).header("Content-Type", "application/json");
-    if let Some(credentials) = credentials {
-        let mut hasher = Sha512::new();
-        hasher.update(credentials.api_key);
-        let hash_result = hasher.finalize();
-
-        let mut api_key_hashed = String::with_capacity(2 * hash_result.len());
-        for byte in hash_result {
-            write!(api_key_hashed, "{:02X}", byte).unwrap();
-        }
-
-        let authorization_value = format!("Basic {}:{}", credentials.api_key_id, api_key_hashed);
-        req = req.header("Authorization", authorization_value);
-    }
-
-    let mut res = req.await.map_err(|e| e.to_string())?;
-    let body = res.body_string().await.map_err(|e| e.to_string())?;
-
-    if res.status().is_server_error() || res.status().is_client_error() {
-        let err_resp: ErrorResponse = serde_json::from_str(&body).map_err(|e| e.to_string())?;
-        return Err(err_resp.error);
-    }
-
-    serde_json::from_str(&body).map_err(|e| e.to_string())
 }

@@ -9,9 +9,22 @@ pub struct GetStatusResponse {
 #[derive(Deserialize)]
 pub struct ApiKeyInfo {
     // id: String,
-// domains: Vec<String>,
-// roles: Vec<ApiRoles>,
-// system: bool,
+    // domains: Vec<String>,
+    pub roles: Vec<ApiRole>,
+    // system: bool,
+}
+
+#[derive(Deserialize)]
+pub struct ApiRole {
+    pub role: u64,
+    // slug: String,
+    // description: String,
+}
+
+impl ApiRole {
+    pub fn is_scraper(&self) -> bool {
+        self.role == 1
+    }
 }
 
 #[derive(Deserialize)]
