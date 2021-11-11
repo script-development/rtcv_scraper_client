@@ -7,14 +7,18 @@ use serde_json::{Error as JsonError, Value as JsonValue};
 pub enum OutMessages {
     Ready(String),
     Pong,
-    Ok,
+    Ok(OkContent),
+    Error(String),
+}
+
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum OkContent {
+    Empty,
+    String(String),
     Secret(JsonValue),
     UserSecret(UserSecret),
     UsersSecret(Vec<UserSecret>),
-    ErrorInvalidJsonInput(String),
-    ErrorAuth(String),
-    ErrorApi(String),
-    ErrorInvalidInput(String),
 }
 
 impl OutMessages {

@@ -3,7 +3,7 @@ pub mod messages;
 pub mod rtcv_types;
 
 use api::Api;
-use messages::{InMessages, OutMessages};
+use messages::{InMessages, OkContent, OutMessages};
 use rtcv_types::{ApiKeyInfo, GetStatusResponse, ScanCvBody, ScanCvResponse};
 use serde_json::Value as JsonValue;
 use std::io;
@@ -20,33 +20,27 @@ async fn main() -> std::io::Result<()> {
         io::stdin().read_line(&mut buffer).unwrap();
         let input = match InMessages::from_json(buffer.trim()) {
             Err(err) => {
-                OutMessages::ErrorInvalidJsonInput(err.to_string()).print();
+                OutMessages::Error(err.to_string()).print();
                 continue;
             }
             Ok(v) => v,
         };
 
-        handle_in_message(input, &mut api).await.print();
+        match handle_in_message(input, &mut api).await {
+            Ok(v) => v.print(),
+            Err(err) => OutMessages::Error(err).print(),
+        };
     }
 }
 
-async fn handle_in_message(input: InMessages, api: &mut Api) -> OutMessages {
+async fn handle_in_message(input: InMessages, api: &mut Api) -> Result<OutMessages, String> {
     match input {
         InMessages::SetCredentials(credentials) => {
-            if let Err(err) = api.set_credentials(credentials) {
-                return OutMessages::ErrorAuth(err);
-            }
+            api.set_credentials(credentials)?;
 
-            let health_req: Result<GetStatusResponse, String> = api.get("/api/v1/health").await;
-            if let Err(err) = health_req {
-                return OutMessages::ErrorAuth(err.to_string());
-            }
+            api.get::<GetStatusResponse>("/api/v1/health").await?;
 
-            let key_info_res: Result<ApiKeyInfo, String> = api.get("/api/v1/auth/keyinfo").await;
-            let key_info = match key_info_res {
-                Err(err) => return OutMessages::ErrorAuth(err.to_string()),
-                Ok(v) => v,
-            };
+            let key_info: ApiKeyInfo = api.get("/api/v1/auth/keyinfo").await?;
             let mut has_scraper_role = false;
             for role in key_info.roles {
                 if role.is_scraper() {
@@ -55,44 +49,43 @@ async fn handle_in_message(input: InMessages, api: &mut Api) -> OutMessages {
                 }
             }
             if !has_scraper_role {
-                let err_msg = "provided key does not have scraper role (nr 1)";
-                return OutMessages::ErrorAuth(String::from(err_msg));
+                return Err(String::from(
+                    "provided key does not have scraper role (nr 1)",
+                ));
             }
 
-            OutMessages::Ok
+            Ok(OutMessages::Ok(OkContent::Empty))
         }
+
         InMessages::GetSecret(args) => {
             let key = match &args.key {
                 Some(v) => v.as_str(),
-                None => return OutMessages::ErrorInvalidInput(String::from("key is required")),
+                None => return Err(String::from("key is required")),
             };
-            match api.get_secret::<JsonValue>(&args.encryption_key, key).await {
-                Ok(v) => OutMessages::Secret(v),
-                Err(err) => OutMessages::ErrorApi(err),
-            }
+
+            api.get_secret::<JsonValue>(&args.encryption_key, key)
+                .await
+                .map(|v| OutMessages::Ok(OkContent::Secret(v)))
         }
-        InMessages::GetUsersSecret(args) => {
-            match api.get_users_secret(&args.encryption_key, args.key).await {
-                Ok(v) => OutMessages::UsersSecret(v),
-                Err(err) => OutMessages::ErrorApi(err),
-            }
-        }
-        InMessages::GetUserSecret(args) => {
-            match api.get_user_secret(&args.encryption_key, args.key).await {
-                Ok(v) => OutMessages::UserSecret(v),
-                Err(err) => OutMessages::ErrorApi(err),
-            }
-        }
+
+        InMessages::GetUsersSecret(args) => api
+            .get_users_secret(&args.encryption_key, args.key)
+            .await
+            .map(|v| OutMessages::Ok(OkContent::UsersSecret(v))),
+
+        InMessages::GetUserSecret(args) => api
+            .get_user_secret(&args.encryption_key, args.key)
+            .await
+            .map(|v| OutMessages::Ok(OkContent::UserSecret(v))),
+
         InMessages::SendCv(cv) => {
             let body = Some(ScanCvBody { cv });
-            let res: Result<ScanCvResponse, String> =
-                api.post("/api/v1/scraper/scanCV", body).await;
+            api.post::<ScanCvResponse, _>("/api/v1/scraper/scanCV", body)
+                .await?;
 
-            match res {
-                Err(err) => OutMessages::ErrorApi(err),
-                Ok(_) => OutMessages::Ok,
-            }
+            Ok(OutMessages::Ok(OkContent::Empty))
         }
-        InMessages::Ping => OutMessages::Pong,
+
+        InMessages::Ping => Ok(OutMessages::Pong),
     }
 }
