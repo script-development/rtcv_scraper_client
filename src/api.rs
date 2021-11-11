@@ -1,9 +1,11 @@
 use crate::messages::InSetCredentials;
 use crate::rtcv_types::ErrorResponse;
 use core::fmt::Write;
+use http_types::{Method, Url};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha512};
+use surf::RequestBuilder;
 
 pub struct Api {
     auth_header_value: String,
@@ -48,20 +50,44 @@ impl Api {
         Ok(())
     }
 
-    pub async fn post() {}
-
     pub async fn get<T: DeserializeOwned>(&self, path: &str) -> Result<T, String> {
+        let body: Option<()> = None;
+        self.do_request(Method::Get, path, body).await
+    }
+
+    pub async fn post<T: DeserializeOwned, Y: Serialize>(
+        &self,
+        path: &str,
+        body: Option<Y>,
+    ) -> Result<T, String> {
+        self.do_request(Method::Post, path, body).await
+    }
+
+    pub async fn do_request<T: DeserializeOwned, Y: Serialize>(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<Y>,
+    ) -> Result<T, String> {
         let server_location = match &self.credentials {
             None => return Err("credentials not set".to_string()),
             Some(v) => v.server_location.as_str(),
         };
 
-        let uri = format!("{}{}", server_location, path);
-        let mut res = surf::get(uri)
+        let uri: Url = format!("{}{}", server_location, path)
+            .as_str()
+            .parse()
+            .unwrap();
+
+        let mut req = RequestBuilder::new(method, uri)
             .header("Content-Type", "application/json")
-            .header("Authorization", &self.auth_header_value)
-            .await
-            .map_err(|e| e.to_string())?;
+            .header("Authorization", &self.auth_header_value);
+
+        if let Some(body) = body {
+            req = req.body_json(&body).map_err(|e| e.to_string())?;
+        }
+
+        let mut res = req.await.map_err(|e| e.to_string())?;
 
         let body = res.body_string().await.map_err(|e| e.to_string())?;
 
@@ -78,7 +104,7 @@ impl Api {
         encryption_key: &str,
         key: &str,
     ) -> Result<T, String> {
-        self.get(format!("/api/v1/secrets/myKey/{}/{}", key, encryption_key))
+        self.get(&format!("/api/v1/secrets/myKey/{}/{}", key, encryption_key))
             .await
     }
 

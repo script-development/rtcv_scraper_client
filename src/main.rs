@@ -4,7 +4,7 @@ pub mod rtcv_types;
 
 use api::Api;
 use messages::{InMessages, OutMessages};
-use rtcv_types::{ApiKeyInfo, GetStatusResponse};
+use rtcv_types::{ApiKeyInfo, GetStatusResponse, ScanCvBody, ScanCvResponse};
 use serde_json::Value as JsonValue;
 use std::io;
 
@@ -83,7 +83,16 @@ async fn handle_in_message(input: InMessages, api: &mut Api) -> OutMessages {
                 Err(err) => OutMessages::ErrorApi(err),
             }
         }
-        InMessages::SendCv(cv) => api.post(path: &str),
+        InMessages::SendCv(cv) => {
+            let body = Some(ScanCvBody { cv });
+            let res: Result<ScanCvResponse, String> =
+                api.post("/api/v1/scraper/scanCV", body).await;
+
+            match res {
+                Err(err) => OutMessages::ErrorApi(err),
+                Ok(_) => OutMessages::Ok,
+            }
+        }
         InMessages::Ping => OutMessages::Pong,
     }
 }

@@ -13,3 +13,4 @@ surf = { version = "2.3", default-features = false, features = [
 ] }
 async-std = { version = "1.10", features = ["attributes"] }
 sha2 = "0.9"
+http-types = "2"

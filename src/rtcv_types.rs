@@ -1,4 +1,5 @@
-use serde::Deserialize;
+use crate::messages::SendCv;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
 pub struct GetStatusResponse {
@@ -30,4 +31,14 @@ impl ApiRole {
 #[derive(Deserialize)]
 pub struct ErrorResponse {
     pub error: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ScanCvBody {
+    pub cv: SendCv,
+}
+
+#[derive(Deserialize)]
+pub struct ScanCvResponse {
+    pub success: bool,
 }

@@ -57,70 +57,76 @@ pub struct InGetSecret {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SendCv {
-    referenceNumber: String,
+    reference_number: String,
     educations: Option<Education>,
     courses: Option<Course>,
-    workExperiences: Option<WorkExperience>,
-    preferredJobs: Option<String>,
+    work_experiences: Option<WorkExperience>,
+    preferred_jobs: Option<String>,
     languages: Option<Language>,
-    personalDetails: Option<PersonalDetails>,
-    driversLicenses: Option<String>,
+    personal_details: Option<PersonalDetails>,
+    drivers_licenses: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PersonalDetails {
     initials: Option<String>,
-    firstName: Option<String>,
-    surNamePrefix: Option<String>,
-    surName: Option<String>,
+    first_name: Option<String>,
+    sur_name_prefix: Option<String>,
+    sur_name: Option<String>,
     dob: Option<String>,
     gender: Option<String>,
-    streetName: Option<String>,
-    houseNumber: Option<String>,
-    houseNumberSuffix: Option<String>,
+    street_name: Option<String>,
+    house_number: Option<String>,
+    house_number_suffix: Option<String>,
     zip: Option<String>,
     city: Option<String>,
     country: Option<String>,
-    phoneNumber: Option<String>,
+    phone_number: Option<String>,
     email: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Education {
     name: Option<String>,
     description: Option<String>,
     institute: Option<String>,
-    isCompleted: Option<bool>,
-    hasDiploma: Option<bool>,
-    startDate: Option<String>,
-    endDate: Option<String>,
+    is_completed: Option<bool>,
+    has_diploma: Option<bool>,
+    start_date: Option<String>,
+    end_date: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Course {
     name: Option<String>,
     institute: Option<String>,
-    startDate: Option<String>,
-    endDate: Option<String>,
-    isCompleted: Option<bool>,
+    start_date: Option<String>,
+    end_date: Option<String>,
+    is_completed: Option<bool>,
     description: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WorkExperience {
     description: Option<String>,
     profession: Option<String>,
-    startDate: Option<String>,
-    endDate: Option<String>,
-    stillEmployed: Option<bool>,
+    start_date: Option<String>,
+    end_date: Option<String>,
+    still_employed: Option<bool>,
     employer: Option<String>,
-    weeklyHoursWorked: Option<isize>,
+    weekly_hours_worked: Option<isize>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Language {
     name: String,
-    levelSpoken: u8,
-    levelWritten: u8,
+    level_spoken: u8,
+    level_written: u8,
 }
