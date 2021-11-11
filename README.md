@@ -69,7 +69,7 @@ Get a user defined secret from the server
 Example input
 
 ```json
-{"type":"get_secret","content":"encryption_key":"my-very-secret-encryption-key", "key":"key-of-value"}}
+{"type":"get_secret","content":{"encryption_key":"my-very-secret-encryption-key", "key":"key-of-value"}}
 ```
 
 Ok Response
