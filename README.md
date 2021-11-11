@@ -30,7 +30,7 @@ custom scraper <> rtcv_scraper_client (this project) <> RT-CV
 
 ## Example inputs
 
-```json
+```jsonc
 // stdin:
 {"type":"set_credentials","content":{"server_location":"http://localhost:4000","api_key_id":"111111111111111111111111","api_key":"ddd"}}
 // stdout:
