@@ -1,5 +1,5 @@
-use crate::messages::SendCv;
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 
 #[derive(Deserialize)]
 pub struct GetStatusResponse {
@@ -35,7 +35,7 @@ pub struct ErrorResponse {
 
 #[derive(Debug, Serialize)]
 pub struct ScanCvBody {
-    pub cv: SendCv,
+    pub cv: JsonValue,
 }
 
 #[derive(Deserialize)]
