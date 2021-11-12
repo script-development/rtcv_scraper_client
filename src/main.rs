@@ -54,7 +54,7 @@ async fn handle_in_message(input: InMessages, api: &mut Api) -> Result<OutMessag
                 ));
             }
 
-            Ok(OutMessages::Ok(OkContent::Empty))
+            Ok(OkContent::Empty.into())
         }
 
         InMessages::GetSecret(args) => {
@@ -65,25 +65,25 @@ async fn handle_in_message(input: InMessages, api: &mut Api) -> Result<OutMessag
 
             api.get_secret::<JsonValue>(&args.encryption_key, key)
                 .await
-                .map(|v| OutMessages::Ok(OkContent::Secret(v)))
+                .map(|v| OkContent::Secret(v).into())
         }
 
         InMessages::GetUsersSecret(args) => api
             .get_users_secret(&args.encryption_key, args.key)
             .await
-            .map(|v| OutMessages::Ok(OkContent::UsersSecret(v))),
+            .map(|v| OkContent::UsersSecret(v).into()),
 
         InMessages::GetUserSecret(args) => api
             .get_user_secret(&args.encryption_key, args.key)
             .await
-            .map(|v| OutMessages::Ok(OkContent::UserSecret(v))),
+            .map(|v| OkContent::UserSecret(v).into()),
 
         InMessages::SendCv(cv) => {
             let body = Some(ScanCvBody { cv });
             api.post::<ScanCvResponse, _>("/api/v1/scraper/scanCV", body)
                 .await?;
 
-            Ok(OutMessages::Ok(OkContent::Empty))
+            Ok(OkContent::Empty.into())
         }
 
         InMessages::Ping => Ok(OutMessages::Pong),

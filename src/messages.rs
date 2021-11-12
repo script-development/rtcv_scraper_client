@@ -21,6 +21,12 @@ pub enum OkContent {
     UsersSecret(Vec<UserSecret>),
 }
 
+impl Into<OutMessages> for OkContent {
+    fn into(self) -> OutMessages {
+        OutMessages::Ok(self)
+    }
+}
+
 impl OutMessages {
     pub fn as_json(&self) -> String {
         serde_json::to_string(self).unwrap()
