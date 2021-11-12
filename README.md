@@ -26,7 +26,7 @@ custom scraper <> rtcv_scraper_client (this project) <> RT-CV
 - [ ] Handle secrets
     - [x] Get
     - [ ] Set
-- [ ] Remember the reference numbers of the scraped data
+- [x] Remember the reference numbers of the scraped data
 
 ## Methods
 
