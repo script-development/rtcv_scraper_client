@@ -110,6 +110,41 @@ Ok Response
 {"type":"ok","content":{"username":"foo","password":"bar"}}
 ```
 
+### `set_cached_reference`
+
+Save a reference number to the cache
+This cache is used to avoid sending the same CV twice or scraping data that has already been scraped
+
+*Note that "send_cv" also executes this function automatically*
+
+Example input
+
+```json
+{"type":"set_cached_reference","content":"abcd"}
+```
+
+Ok Response
+
+```json
+{"type":"ok"}
+```
+
+### `has_cached_reference`
+
+Is there a cache entry for a specific reference number?
+
+Example input
+
+```json
+{"type":"has_cached_reference","content":"abcd"}
+```
+
+Ok Response
+
+```json
+{"type":"ok","content":true}
+```
+
 ### `ping`
 
 Send a ping message to the server and the server will respond with a pong
