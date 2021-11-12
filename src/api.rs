@@ -5,11 +5,14 @@ use http_types::{Method, Url};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use sha2::{Digest, Sha512};
+use std::collections::HashMap;
+use std::time::SystemTime;
 use surf::RequestBuilder;
 
 pub struct Api {
     auth_header_value: String,
     credentials: Option<InSetCredentials>,
+    pub cache: HashMap<String, SystemTime>,
 }
 
 impl Api {
@@ -17,6 +20,7 @@ impl Api {
         Self {
             auth_header_value: String::new(),
             credentials: None,
+            cache: HashMap::new(),
         }
     }
 

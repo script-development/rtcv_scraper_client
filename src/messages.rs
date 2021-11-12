@@ -15,6 +15,7 @@ pub enum OutMessages {
 #[serde(untagged)]
 pub enum OkContent {
     Empty,
+    Bool(bool),
     String(String),
     Secret(JsonValue),
     UserSecret(UserSecret),
@@ -44,6 +45,8 @@ pub enum InMessages {
     GetSecret(InGetSecret),
     GetUsersSecret(InGetSecret),
     GetUserSecret(InGetSecret),
+    SetCachedReference(String),
+    HasCachedReference(String),
     Ping,
 }
 

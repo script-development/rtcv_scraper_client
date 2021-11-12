@@ -7,6 +7,7 @@ use messages::{InMessages, OkContent, OutMessages};
 use rtcv_types::{ApiKeyInfo, GetStatusResponse, ScanCvBody, ScanCvResponse};
 use serde_json::Value as JsonValue;
 use std::io;
+use std::time::{Duration, SystemTime};
 
 #[async_std::main]
 async fn main() -> std::io::Result<()> {
@@ -79,11 +80,50 @@ async fn handle_in_message(input: InMessages, api: &mut Api) -> Result<OutMessag
             .map(|v| OkContent::UserSecret(v).into()),
 
         InMessages::SendCv(cv) => {
+            let cv_content = match &cv {
+                JsonValue::Object(m) => m,
+                _ => return Err(String::from("cv expected to be a object")),
+            };
+
+            let reference_number_json = match cv_content.get("referenceNumber") {
+                Some(v) => v,
+                None => return Err(String::from("referenceNumber is required")),
+            };
+
+            match reference_number_json {
+                JsonValue::String(reference_number) => {
+                    api.cache
+                        .insert(reference_number.clone(), SystemTime::now());
+                }
+                _ => return Err(String::from("referenceNumber is expected to be a string")),
+            };
+
             let body = Some(ScanCvBody { cv });
             api.post::<ScanCvResponse, _>("/api/v1/scraper/scanCV", body)
                 .await?;
 
             Ok(OkContent::Empty.into())
+        }
+
+        InMessages::SetCachedReference(reference_number) => {
+            api.cache.insert(reference_number, SystemTime::now());
+            Ok(OkContent::Empty.into())
+        }
+
+        InMessages::HasCachedReference(reference_number) => {
+            let mut value_present = false;
+
+            let res = api.cache.get(&reference_number);
+            if let Some(insertion_time) = res {
+                let cache_timeout = Duration::from_secs(60 * 60 * 72); // 3 days
+                if insertion_time.elapsed().unwrap() > cache_timeout {
+                    api.cache.remove(&reference_number);
+                } else {
+                    value_present = true;
+                }
+            }
+
+            Ok(OkContent::Bool(value_present).into())
         }
 
         InMessages::Ping => Ok(OutMessages::Pong),
