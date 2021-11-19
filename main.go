@@ -114,7 +114,9 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 
 		api.Cache[referenceNr] = time.Now()
 
-		err = api.Post("/api/v1/scraper/scanCV", input.Content, nil)
+		scanCVBody := json.RawMessage(`{"cv":` + string(input.Content) + `}`)
+
+		err = api.Post("/api/v1/scraper/scanCV", scanCVBody, nil)
 		if err != nil {
 			return returnErr(err)
 		}
