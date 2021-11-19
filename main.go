@@ -88,6 +88,17 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 			return returnErr(errors.New("provided key does not have scraper role (nr 1)"))
 		}
 
+		referenceNrs := []string{}
+		err = api.Get("/api/v1/scraper/scannedReferenceNrs/since/days/3", &referenceNrs)
+		if err != nil {
+			return returnErr(err)
+		}
+
+		now := time.Now()
+		for _, nr := range referenceNrs {
+			api.Cache[nr] = now
+		}
+
 		return MessageTypeOk, nil
 	case "send_cv":
 		cvContent := map[string]interface{}{}
