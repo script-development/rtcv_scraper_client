@@ -1,7 +1,3 @@
-# EXPERIMENT
-
-This project is just an experiment to try a different approach to communicating with [RT-CV](https://github.com/script-development/RT-CV) from a custom scraper
-
 # RT-CV scraper client
 
 A client that can be spawned by a scraper to ease communication with [RT-CV](https://github.com/script-development/RT-CV)
