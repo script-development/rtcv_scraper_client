@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,9 +13,9 @@ func main() {
 
 	api := NewAPI()
 
-	reader := bufio.NewReader(os.Stdin)
 	for {
-		text, err := reader.ReadString('\n')
+		text := ""
+		_, err := fmt.Scanln(&text)
 		if err != nil {
 			PrintMessage(MessageTypeError, err.Error())
 			break
