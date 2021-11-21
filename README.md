@@ -156,3 +156,19 @@ Ok Response
 ```json
 {"type":"pong"}
 ```
+
+## How to ship?
+
+Currently we don't have pre build binaries so you'll need to compile the binary yourself
+
+```Dockerfile
+# If your final docker image is based on the golang image you can simply run this command
+RUN go install github.com/script-development/rtcv_scraper_client
+
+# If your container runtime and build images are separated you can do something like this
+RUN git clone https://github.com/script-development/rtcv_scraper_client /root/rtcv_scraper_client
+WORKDIR /root/rtcv_scraper_client
+RUN go build
+# then in your runtime:
+COPY --from=build /root/rtcv_scraper_client/rtcv_scraper_client /bin/rtcv_scraper_client
+```
