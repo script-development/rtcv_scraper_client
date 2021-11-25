@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -13,12 +14,34 @@ func main() {
 
 	api := NewAPI()
 
+	logInput := map[string]bool{
+		"1":    true,
+		"t":    true,
+		"true": true,
+	}[strings.ToLower(os.Getenv("LOG_SCRAPER_CLIENT_INPUT"))]
+
+	var logInputFile *os.File
+	var err error
+	if logInput {
+		logInputFile, err = os.OpenFile("scraper_client_input.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			PrintMessage(MessageTypeError, err.Error())
+			os.Exit(1)
+		}
+		defer logInputFile.Close()
+	}
+
 	for {
 		text := ""
 		_, err := fmt.Scanln(&text)
 		if err != nil {
 			PrintMessage(MessageTypeError, err.Error())
 			break
+		}
+
+		if logInput {
+			fmt.Fprintln(logInputFile, strings.TrimSpace(text))
+			logInputFile.Sync()
 		}
 
 		PrintMessage(LoopAction(api, text))

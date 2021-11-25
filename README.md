@@ -157,6 +157,29 @@ Ok Response
 {"type":"pong"}
 ```
 
+## How to develop
+
+```sh
+# After a change update the binary in your path using:
+go install
+
+# Then in your scraper project
+cd ../some-scraper
+go run .
+```
+
+Debug data send by scraper to this program
+```sh
+export LOG_SCRAPER_CLIENT_INPUT=true
+# Now run your scraper
+go run .
+
+# Now all messages written to this program are also written to scraper_client_input.log
+# You can follow the input by tailing the file:
+tail -f scraper_client_input.log
+```
+
+
 ## How to ship?
 
 Currently we don't have pre build binaries so you'll need to compile the binary yourself
