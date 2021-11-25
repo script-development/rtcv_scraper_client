@@ -1,18 +1,55 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
 	"strings"
 	"time"
 )
 
 func main() {
-	PrintMessage(MessageTypeReady, "waiting for credentials")
+	replayFile := ""
+	flag.StringVar(&replayFile, "replay", "", "replay file, file can be generated using LOG_SCRAPER_CLIENT_INPUT=true")
+	flag.Parse()
 
 	api := NewAPI()
+
+	if replayFile != "" {
+		out, err := ioutil.ReadFile(replayFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		fmt.Println("replaying", len(lines), "commands")
+
+		for _, line := range lines {
+			input := InMessage{}
+			err := json.Unmarshal([]byte(line), &input)
+			if err != nil {
+				fmt.Println("error:", err.Error())
+				continue
+			}
+
+			fmt.Println("IN:", input.Type)
+
+			msgType, msgContents := LoopAction(api, line)
+			if jsonContent, ok := msgContents.(json.RawMessage); ok {
+				msgContents = string(jsonContent)
+			}
+			fmt.Printf("OUT: %s: %+v\n", msgType.String(), msgContents)
+		}
+
+		os.Exit(0)
+	}
+
+	PrintMessage(MessageTypeReady, "waiting for credentials")
 
 	logInput := map[string]bool{
 		"1":    true,
@@ -31,16 +68,23 @@ func main() {
 		defer logInputFile.Close()
 	}
 
-	for {
-		text := ""
-		_, err := fmt.Scanln(&text)
+	scanner := bufio.NewScanner(os.Stdin)
+	err = scanner.Err()
+	if err != nil {
+		PrintMessage(MessageTypeError, err.Error())
+		os.Exit(1)
+	}
+
+	for scanner.Scan() {
+		text := strings.TrimSpace(scanner.Text())
+		err = scanner.Err()
 		if err != nil {
 			PrintMessage(MessageTypeError, err.Error())
 			break
 		}
 
 		if logInput {
-			fmt.Fprintln(logInputFile, strings.TrimSpace(text))
+			fmt.Fprintln(logInputFile, text)
 			logInputFile.Sync()
 		}
 
