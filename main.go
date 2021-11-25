@@ -37,13 +37,27 @@ func main() {
 				continue
 			}
 
-			fmt.Println("IN:", input.Type)
-
+			startTime := time.Now()
 			msgType, msgContents := LoopAction(api, line)
+			endTime := time.Now()
 			if jsonContent, ok := msgContents.(json.RawMessage); ok {
 				msgContents = string(jsonContent)
 			}
-			fmt.Printf("OUT: %s: %+v\n", msgType.String(), msgContents)
+
+			durationMs := fmt.Sprintf("%dms", endTime.Sub(startTime).Milliseconds())
+			durationPaddingLen := 5 - len(durationMs)
+			if durationPaddingLen < 0 {
+				durationPaddingLen = 0
+			}
+			durationPadding := strings.Repeat(" ", durationPaddingLen)
+
+			inputPaddingLen := 20 - len(input.Type)
+			if inputPaddingLen < 0 {
+				inputPaddingLen = 0
+			}
+			inputTypePadding := strings.Repeat(" ", inputPaddingLen)
+
+			fmt.Printf("%s%s IN: %s%s OUT: %s: %+v\n", durationMs, durationPadding, input.Type, inputTypePadding, msgType.String(), msgContents)
 		}
 
 		os.Exit(0)

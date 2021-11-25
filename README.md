@@ -177,8 +177,11 @@ go run .
 # Now all messages written to this program are also written to scraper_client_input.log
 # You can follow the input by tailing the file:
 tail -f scraper_client_input.log
-```
 
+# After collecting the input data you can also use rtcv_scraper_client to replay sending the data
+# This is very handy for debugging
+rtcv_scraper_client -replay scraper_client_input.log
+```
 
 ## How to ship?
 
