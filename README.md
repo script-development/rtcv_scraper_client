@@ -181,6 +181,11 @@ tail -f scraper_client_input.log
 # After collecting the input data you can also use rtcv_scraper_client to replay sending the data
 # This is very handy for debugging
 rtcv_scraper_client -replay scraper_client_input.log
+
+# There are also additional options for the -replay command:
+rtcv_scraper_client \
+    -replay ../werk-scraper/scraper_client_input.log \
+    -replaySkipCommands has_cached_reference,set_cached_reference,ping,get_users_secret
 ```
 
 ## How to ship?

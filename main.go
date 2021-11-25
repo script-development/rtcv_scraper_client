@@ -15,7 +15,9 @@ import (
 
 func main() {
 	replayFile := ""
+	replaySkipCommands := ""
 	flag.StringVar(&replayFile, "replay", "", "replay file, file can be generated using LOG_SCRAPER_CLIENT_INPUT=true")
+	flag.StringVar(&replaySkipCommands, "replaySkipCommands", "", "in a replay skip sending specific commands, for multiple commands add comma's in between")
 	flag.Parse()
 
 	api := NewAPI()
@@ -29,11 +31,23 @@ func main() {
 		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 		fmt.Println("replaying", len(lines), "commands")
 
+		commandsToSkip := map[string]bool{}
+		for _, skipCommand := range strings.Split(replaySkipCommands, ",") {
+			skipCommand = strings.TrimSpace(skipCommand)
+			if skipCommand != "" {
+				commandsToSkip[skipCommand] = true
+			}
+		}
+
 		for _, line := range lines {
 			input := InMessage{}
 			err := json.Unmarshal([]byte(line), &input)
 			if err != nil {
 				fmt.Println("error:", err.Error())
+				continue
+			}
+
+			if commandsToSkip[input.Type] {
 				continue
 			}
 
