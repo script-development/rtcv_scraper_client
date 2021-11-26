@@ -16,13 +16,17 @@ import (
 func main() {
 	replayFile := ""
 	replaySkipCommands := ""
+	repeatReplay := uint(1)
 	flag.StringVar(&replayFile, "replay", "", "replay file, file can be generated using LOG_SCRAPER_CLIENT_INPUT=true")
 	flag.StringVar(&replaySkipCommands, "replaySkipCommands", "", "in a replay skip sending specific commands, for multiple commands add comma's in between")
+	flag.UintVar(&repeatReplay, "repeatReplay", 1, "repeat replay this many times, handy for performance profiling the RT-CV matcher")
 	flag.Parse()
 
-	api := NewAPI()
-
 	if replayFile != "" {
+		if repeatReplay == 0 {
+			log.Fatal("repeatReplay must be greater than 0")
+		}
+
 		out, err := ioutil.ReadFile(replayFile)
 		if err != nil {
 			log.Fatal(err)
@@ -39,45 +43,51 @@ func main() {
 			}
 		}
 
-		for _, line := range lines {
-			input := InMessage{}
-			err := json.Unmarshal([]byte(line), &input)
-			if err != nil {
-				fmt.Println("error:", err.Error())
-				continue
-			}
+		for i := uint(0); i < repeatReplay; i++ {
+			api := NewAPI()
 
-			if commandsToSkip[input.Type] {
-				continue
-			}
+			for _, line := range lines {
+				input := InMessage{}
+				err := json.Unmarshal([]byte(line), &input)
+				if err != nil {
+					fmt.Println("error:", err.Error())
+					continue
+				}
 
-			startTime := time.Now()
-			msgType, msgContents := LoopAction(api, line)
-			endTime := time.Now()
-			if jsonContent, ok := msgContents.(json.RawMessage); ok {
-				msgContents = string(jsonContent)
-			}
+				if commandsToSkip[input.Type] {
+					continue
+				}
 
-			durationMs := fmt.Sprintf("%dms", endTime.Sub(startTime).Milliseconds())
-			durationPaddingLen := 5 - len(durationMs)
-			if durationPaddingLen < 0 {
-				durationPaddingLen = 0
-			}
-			durationPadding := strings.Repeat(" ", durationPaddingLen)
+				startTime := time.Now()
+				msgType, msgContents := LoopAction(api, line)
+				endTime := time.Now()
+				if jsonContent, ok := msgContents.(json.RawMessage); ok {
+					msgContents = string(jsonContent)
+				}
 
-			inputPaddingLen := 20 - len(input.Type)
-			if inputPaddingLen < 0 {
-				inputPaddingLen = 0
-			}
-			inputTypePadding := strings.Repeat(" ", inputPaddingLen)
+				durationMs := fmt.Sprintf("%dms", endTime.Sub(startTime).Milliseconds())
+				durationPaddingLen := 5 - len(durationMs)
+				if durationPaddingLen < 0 {
+					durationPaddingLen = 0
+				}
+				durationPadding := strings.Repeat(" ", durationPaddingLen)
 
-			fmt.Printf("%s%s IN: %s%s OUT: %s: %+v\n", durationMs, durationPadding, input.Type, inputTypePadding, msgType.String(), msgContents)
+				inputPaddingLen := 20 - len(input.Type)
+				if inputPaddingLen < 0 {
+					inputPaddingLen = 0
+				}
+				inputTypePadding := strings.Repeat(" ", inputPaddingLen)
+
+				fmt.Printf("%s%s IN: %s%s OUT: %s: %+v\n", durationMs, durationPadding, input.Type, inputTypePadding, msgType.String(), msgContents)
+			}
 		}
 
 		os.Exit(0)
 	}
 
 	PrintMessage(MessageTypeReady, "waiting for credentials")
+
+	api := NewAPI()
 
 	logInput := map[string]bool{
 		"1":    true,
