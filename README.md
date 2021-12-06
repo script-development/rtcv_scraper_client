@@ -157,6 +157,23 @@ Ok Response
 {"type":"pong"}
 ```
 
+## RT-CV mocking
+
+This library can also mock request send to RT-CV by providing `set_credentials` with the following
+
+```json
+{"type":"set_credentials","content":{"mock":{}}}
+```
+
+You can also provide mock secrets for the `*_secret` methods.
+
+This object need to follow the following type convention `key (string) -> value (any)`
+
+```json
+{"type":"set_credentials","content":{"mock":{"secrets":{"users": [{"username":"foo","password":"bar"}],"user":{"username":"foo","password":"bar"}}}}}
+```
+
+
 ## How to develop
 
 ```sh
