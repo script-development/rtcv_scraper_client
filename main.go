@@ -256,6 +256,10 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 			return returnErr(err)
 		}
 
+		if api.MockMode {
+			return MessageTypeOk, json.RawMessage("null")
+		}
+
 		key := getSecretArgs.Key
 		encryptionKey := getSecretArgs.EncryptionKey
 
