@@ -36,7 +36,8 @@ func NewAPI() *API {
 }
 
 func (a *API) SetCredentials(serverLocation, apiKeyID, apiKey string, runAsMockWithOpts *MockOptions) error {
-	if runAsMockWithOpts != nil {
+	a.MockMode = runAsMockWithOpts != nil
+	if a.MockMode {
 		a.MockOptions = *runAsMockWithOpts
 		a.MockMode = true
 		return nil
