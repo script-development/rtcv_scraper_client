@@ -5,12 +5,17 @@ import (
 	"fmt"
 )
 
+// MessageType represends a response message type
 type MessageType uint8
 
 const (
+	// MessageTypeReady tells the client is ready to receive messages
 	MessageTypeReady MessageType = iota
+	// MessageTypePong is the response of a ping input message
 	MessageTypePong
+	// MessageTypeOk is the response of a successful operation
 	MessageTypeOk
+	// MessageTypeError is the response of an error
 	MessageTypeError
 )
 
@@ -29,7 +34,8 @@ func (mt MessageType) String() string {
 	}
 }
 
-func PrintMessage(messageType MessageType, messageContent interface{}) {
+// Print prints a json message to screen with the MessageType and messageContent
+func (mt MessageType) Print(messageContent interface{}) {
 	var content []byte
 
 	if messageContent != nil {
@@ -44,7 +50,7 @@ func PrintMessage(messageType MessageType, messageContent interface{}) {
 		Type    string          `json:"type"`
 		Content json.RawMessage `json:"content,omitempty"`
 	}{
-		Type:    messageType.String(),
+		Type:    mt.String(),
 		Content: content,
 	})
 	if err != nil {
@@ -55,6 +61,7 @@ func PrintMessage(messageType MessageType, messageContent interface{}) {
 	}
 }
 
+// InMessage represents the json contents of a stdin line
 type InMessage struct {
 	Type    string          `json:"type"`
 	Content json.RawMessage `json:"content"`
