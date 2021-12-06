@@ -148,28 +148,26 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 	switch input.Type {
 	case "set_credentials":
 		credentialsArgs := struct {
-			ServerLocation string `json:"server_location"`
-			ApiKeyID       string `json:"api_key_id"`
-			ApiKey         string `json:"api_key"`
-			Mock           *bool  `json:"mock"` // is pointer to bool so you can also pass null as value aside from only true and false
+			ServerLocation string       `json:"server_location"`
+			ApiKeyID       string       `json:"api_key_id"`
+			ApiKey         string       `json:"api_key"`
+			Mock           *MockOptions `json:"mock"` // Null means disabled
 		}{}
 		err = json.Unmarshal(input.Content, &credentialsArgs)
 		if err != nil {
 			return returnErr(err)
 		}
 
-		mock := credentialsArgs.Mock != nil && *credentialsArgs.Mock
-
 		err = api.SetCredentials(
 			credentialsArgs.ServerLocation,
 			credentialsArgs.ApiKeyID,
 			credentialsArgs.ApiKey,
-			mock,
+			credentialsArgs.Mock,
 		)
 		if err != nil {
 			return returnErr(err)
 		}
-		if mock {
+		if api.MockMode {
 			return MessageTypeOk, nil
 		}
 
@@ -254,10 +252,6 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 		err = json.Unmarshal(input.Content, &getSecretArgs)
 		if err != nil {
 			return returnErr(err)
-		}
-
-		if api.MockMode {
-			return MessageTypeOk, json.RawMessage("null")
 		}
 
 		key := getSecretArgs.Key

@@ -18,6 +18,11 @@ type API struct {
 	serverLocation  string
 	Cache           map[string]time.Time
 	MockMode        bool
+	MockOptions     MockOptions
+}
+
+type MockOptions struct {
+	Secrets map[string]json.RawMessage `json:"secrets"`
 }
 
 func NewAPI() *API {
@@ -26,11 +31,13 @@ func NewAPI() *API {
 		serverLocation:  "",
 		Cache:           map[string]time.Time{},
 		MockMode:        false,
+		MockOptions:     MockOptions{},
 	}
 }
 
-func (a *API) SetCredentials(serverLocation, apiKeyID, apiKey string, runAsMockServer bool) error {
-	if runAsMockServer {
+func (a *API) SetCredentials(serverLocation, apiKeyID, apiKey string, runAsMockWithOpts *MockOptions) error {
+	if runAsMockWithOpts != nil {
+		a.MockOptions = *runAsMockWithOpts
 		a.MockMode = true
 		return nil
 	}
@@ -114,6 +121,16 @@ func (a *API) NoCredentials() bool {
 var ErrMissingCredentials = errors.New("missing credentials, call set_credentials before this method")
 
 func (a *API) GetSecret(key, encryptionKey string, result interface{}) error {
+	if a.MockMode {
+		if a.MockOptions.Secrets == nil {
+			return json.Unmarshal([]byte("null"), result)
+		}
+		secret, ok := a.MockOptions.Secrets[key]
+		if !ok || secret == nil {
+			return json.Unmarshal([]byte("null"), result)
+		}
+		return json.Unmarshal(secret, result)
+	}
 	if a.NoCredentials() {
 		return ErrMissingCredentials
 	}
