@@ -151,19 +151,26 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 			ServerLocation string `json:"server_location"`
 			ApiKeyID       string `json:"api_key_id"`
 			ApiKey         string `json:"api_key"`
+			Mock           *bool  `json:"mock"` // is pointer to bool so you can also pass null as value aside from only true and false
 		}{}
 		err = json.Unmarshal(input.Content, &credentialsArgs)
 		if err != nil {
 			return returnErr(err)
 		}
 
+		mock := credentialsArgs.Mock != nil && *credentialsArgs.Mock
+
 		err = api.SetCredentials(
 			credentialsArgs.ServerLocation,
 			credentialsArgs.ApiKeyID,
 			credentialsArgs.ApiKey,
+			mock,
 		)
 		if err != nil {
 			return returnErr(err)
+		}
+		if mock {
+			return MessageTypeOk, nil
 		}
 
 		err = api.Get("/api/v1/health", nil)
@@ -229,11 +236,13 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 
 		api.Cache[referenceNr] = time.Now()
 
-		scanCVBody := json.RawMessage(`{"cv":` + string(input.Content) + `}`)
+		if !api.MockMode {
+			scanCVBody := json.RawMessage(`{"cv":` + string(input.Content) + `}`)
 
-		err = api.Post("/api/v1/scraper/scanCV", scanCVBody, nil)
-		if err != nil {
-			return returnErr(err)
+			err = api.Post("/api/v1/scraper/scanCV", scanCVBody, nil)
+			if err != nil {
+				return returnErr(err)
+			}
 		}
 
 		return MessageTypeOk, nil

@@ -17,6 +17,7 @@ type API struct {
 	authHeaderValue string
 	serverLocation  string
 	Cache           map[string]time.Time
+	MockMode        bool
 }
 
 func NewAPI() *API {
@@ -24,10 +25,16 @@ func NewAPI() *API {
 		authHeaderValue: "",
 		serverLocation:  "",
 		Cache:           map[string]time.Time{},
+		MockMode:        false,
 	}
 }
 
-func (a *API) SetCredentials(serverLocation, apiKeyID, apiKey string) error {
+func (a *API) SetCredentials(serverLocation, apiKeyID, apiKey string, runAsMockServer bool) error {
+	if runAsMockServer {
+		a.MockMode = true
+		return nil
+	}
+
 	if serverLocation == "" {
 		return errors.New("server_location cannot be empty")
 	}
@@ -100,11 +107,23 @@ func (a *API) DoRequest(method, path string, body, unmarshalResInto interface{})
 	return nil
 }
 
+func (a *API) NoCredentials() bool {
+	return a.authHeaderValue == "" && !a.MockMode
+}
+
+var ErrMissingCredentials = errors.New("missing credentials, call set_credentials before this method")
+
 func (a *API) GetSecret(key, encryptionKey string, result interface{}) error {
+	if a.NoCredentials() {
+		return ErrMissingCredentials
+	}
 	return a.Get(fmt.Sprintf("/api/v1/secrets/myKey/%s/%s", key, encryptionKey), result)
 }
 
 func (a *API) GetUsersSecret(key, encryptionKey string) ([]UserSecret, error) {
+	if a.NoCredentials() {
+		return []UserSecret{}, ErrMissingCredentials
+	}
 	if key == "" {
 		key = "users"
 	}
@@ -115,6 +134,9 @@ func (a *API) GetUsersSecret(key, encryptionKey string) ([]UserSecret, error) {
 }
 
 func (a *API) GetUserSecret(key, encryptionKey string) (UserSecret, error) {
+	if a.NoCredentials() {
+		return UserSecret{}, ErrMissingCredentials
+	}
 	if key == "" {
 		key = "user"
 	}
