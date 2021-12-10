@@ -21,9 +21,9 @@ jobs:
       run: go install
 
     - name: Set up Deno
-        uses: denolib/setup-deno@v2
-        with:
-          deno-version: 1.16
+      uses: denolib/setup-deno@v2
+      with:
+        deno-version: 1.16
 
     - name: Run Deno example
       run: deno run -A examples/deno/main.ts
