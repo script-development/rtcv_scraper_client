@@ -210,13 +210,9 @@ rtcv_scraper_client \
 Currently we don't have pre build binaries so you'll need to compile the binary yourself
 
 ```Dockerfile
-# If your final docker image is based on the golang image you can simply run this command
-RUN go install github.com/script-development/rtcv_scraper_client
+FROM golang:alpine AS obtain-rtcv-client
+RUN go install github.com/script-development/rtcv_scraper_client@latest
 
-# If your container runtime and build images are separated you can do something like this
-RUN git clone https://github.com/script-development/rtcv_scraper_client /root/rtcv_scraper_client
-WORKDIR /root/rtcv_scraper_client
-RUN go build
-# then in your runtime:
-COPY --from=build /root/rtcv_scraper_client/rtcv_scraper_client /bin/rtcv_scraper_client
+FROM denoland/deno:alpine AS runtime
+COPY --from=obtain-rtcv-client /go/bin/rtcv_scraper_client /bin/rtcv_scraper_client
 ```
