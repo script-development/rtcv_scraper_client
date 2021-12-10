@@ -2,4 +2,6 @@
     "[markdown]": {
         "editor.formatOnSave": false
     },
+    "deno.enable": true,
+    "deno.lint": true,
 }
