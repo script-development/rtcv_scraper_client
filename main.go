@@ -85,7 +85,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	PrintMessage(MessageTypeReady, "waiting for credentials")
+	MessageTypeReady.Print("waiting for credentials")
 
 	api := NewAPI()
 
@@ -98,18 +98,20 @@ func main() {
 	var logInputFile *os.File
 	var err error
 	if logInput {
-		logInputFile, err = os.OpenFile("scraper_client_input.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		logInputFile, err = os.OpenFile("scraper_client_input.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 		if err != nil {
-			PrintMessage(MessageTypeError, err.Error())
+			MessageTypeError.Print(err.Error())
 			os.Exit(1)
 		}
-		defer logInputFile.Close()
 	}
 
 	scanner := bufio.NewScanner(os.Stdin)
 	err = scanner.Err()
 	if err != nil {
-		PrintMessage(MessageTypeError, err.Error())
+		MessageTypeError.Print(err.Error())
+		if logInput {
+			logInputFile.Close()
+		}
 		os.Exit(1)
 	}
 
@@ -117,7 +119,7 @@ func main() {
 		text := strings.TrimSpace(scanner.Text())
 		err = scanner.Err()
 		if err != nil {
-			PrintMessage(MessageTypeError, err.Error())
+			MessageTypeError.Print(err.Error())
 			break
 		}
 
@@ -126,14 +128,20 @@ func main() {
 			logInputFile.Sync()
 		}
 
-		PrintMessage(LoopAction(api, text))
+		mt, msgContent := LoopAction(api, text)
+		mt.Print(msgContent)
 	}
 
 	// If the loop stops there is a critical error
 	// Thus the program should exit with a error code
+	if logInput {
+		logInputFile.Close()
+	}
 	os.Exit(1)
 }
 
+// LoopAction handles one line of input and returns the response
+// Note that no-where inside this function we should print to the screen
 func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent interface{}) {
 	returnErr := func(err error) (msgType MessageType, msgContent interface{}) {
 		return MessageTypeError, err.Error()
@@ -149,8 +157,8 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 	case "set_credentials":
 		credentialsArgs := struct {
 			ServerLocation string       `json:"server_location"`
-			ApiKeyID       string       `json:"api_key_id"`
-			ApiKey         string       `json:"api_key"`
+			APIKeyID       string       `json:"api_key_id"`
+			APIKey         string       `json:"api_key"`
 			Mock           *MockOptions `json:"mock"` // Null means disabled
 		}{}
 		err = json.Unmarshal(input.Content, &credentialsArgs)
@@ -160,8 +168,8 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 
 		err = api.SetCredentials(
 			credentialsArgs.ServerLocation,
-			credentialsArgs.ApiKeyID,
-			credentialsArgs.ApiKey,
+			credentialsArgs.APIKeyID,
+			credentialsArgs.APIKey,
 			credentialsArgs.Mock,
 		)
 		if err != nil {

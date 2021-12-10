@@ -13,6 +13,7 @@ import (
 	"time"
 )
 
+// API holds information used to communicate with the RT-CV api
 type API struct {
 	authHeaderValue string
 	serverLocation  string
@@ -21,20 +22,19 @@ type API struct {
 	MockOptions     MockOptions
 }
 
+// MockOptions represends options for the RT-CV mocking mode
 type MockOptions struct {
 	Secrets map[string]json.RawMessage `json:"secrets"`
 }
 
+// NewAPI creates a new instance of the API
 func NewAPI() *API {
 	return &API{
-		authHeaderValue: "",
-		serverLocation:  "",
-		Cache:           map[string]time.Time{},
-		MockMode:        false,
-		MockOptions:     MockOptions{},
+		Cache: map[string]time.Time{},
 	}
 }
 
+// SetCredentials sets the api credentials so we can make fetch requests to RT-CV
 func (a *API) SetCredentials(serverLocation, apiKeyID, apiKey string, runAsMockWithOpts *MockOptions) error {
 	a.MockMode = runAsMockWithOpts != nil
 	if a.MockMode {
@@ -54,21 +54,24 @@ func (a *API) SetCredentials(serverLocation, apiKeyID, apiKey string, runAsMockW
 	if apiKey == "" {
 		return errors.New("api_key cannot be empty")
 	}
-	hashedApiKey := sha512.Sum512([]byte(apiKey))
-	hashedApiKeyStr := hex.EncodeToString(hashedApiKey[:])
-	a.authHeaderValue = "Basic " + apiKeyID + ":" + hashedApiKeyStr
+	hashedAPIKey := sha512.Sum512([]byte(apiKey))
+	hashedAPIKeyStr := hex.EncodeToString(hashedAPIKey[:])
+	a.authHeaderValue = "Basic " + apiKeyID + ":" + hashedAPIKeyStr
 
 	return nil
 }
 
+// Get makes a get request to RT-CV
 func (a *API) Get(path string, unmarshalResInto interface{}) error {
 	return a.DoRequest("GET", path, nil, unmarshalResInto)
 }
 
+// Post makes a post request to RT-CV
 func (a *API) Post(path string, body interface{}, unmarshalResInto interface{}) error {
 	return a.DoRequest("POST", path, body, unmarshalResInto)
 }
 
+// DoRequest makes a http request to RT-CV
 func (a *API) DoRequest(method, path string, body, unmarshalResInto interface{}) error {
 	var reqBody io.ReadCloser
 	if body != nil {
@@ -115,12 +118,16 @@ func (a *API) DoRequest(method, path string, body, unmarshalResInto interface{})
 	return nil
 }
 
+// NoCredentials returns true if the SetCredentials method was not yet called and we aren't in mock mode
 func (a *API) NoCredentials() bool {
 	return a.authHeaderValue == "" && !a.MockMode
 }
 
+// ErrMissingCredentials is returned when the SetCredentials method was not yet called
+// while we're trying to execute an action that requires them
 var ErrMissingCredentials = errors.New("missing credentials, call set_credentials before this method")
 
+// GetSecret returns a secret from RT-CV
 func (a *API) GetSecret(key, encryptionKey string, result interface{}) error {
 	if a.MockMode {
 		if a.MockOptions.Secrets == nil {
@@ -138,6 +145,7 @@ func (a *API) GetSecret(key, encryptionKey string, result interface{}) error {
 	return a.Get(fmt.Sprintf("/api/v1/secrets/myKey/%s/%s", key, encryptionKey), result)
 }
 
+// GetUsersSecret returns strictly defined users secret
 func (a *API) GetUsersSecret(key, encryptionKey string) ([]UserSecret, error) {
 	if a.NoCredentials() {
 		return []UserSecret{}, ErrMissingCredentials
@@ -151,6 +159,7 @@ func (a *API) GetUsersSecret(key, encryptionKey string) ([]UserSecret, error) {
 	return result, err
 }
 
+// GetUserSecret returns strictly defined user secret
 func (a *API) GetUserSecret(key, encryptionKey string) (UserSecret, error) {
 	if a.NoCredentials() {
 		return UserSecret{}, ErrMissingCredentials
@@ -164,6 +173,7 @@ func (a *API) GetUserSecret(key, encryptionKey string) (UserSecret, error) {
 	return result, err
 }
 
+// CacheEntryExists returns true if the cache entry exists and is not expired
 func (a *API) CacheEntryExists(referenceNr string) bool {
 	cacheEntryInsertionTime, cacheEntryExists := a.Cache[referenceNr]
 	if cacheEntryExists {
@@ -178,6 +188,7 @@ func (a *API) CacheEntryExists(referenceNr string) bool {
 	return cacheEntryExists
 }
 
+// UserSecret represents the json layout of an user secret
 type UserSecret struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
