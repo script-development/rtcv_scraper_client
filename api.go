@@ -91,31 +91,39 @@ func (a *API) DoRequest(method, path string, body, unmarshalResInto interface{})
 		req.Header.Add("Authorization", a.authHeaderValue)
 	}
 
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-
-	resBody, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return err
-	}
-
-	if res.StatusCode >= 400 && res.StatusCode < 600 {
-		errorRes := struct {
-			Error string `json:"error"`
-		}{}
-		err = json.Unmarshal(resBody, &errorRes)
+	attempt := 0
+	for {
+		res, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return fmt.Errorf("server returned %d code, with body %s", res.StatusCode, string(resBody))
+			attempt++
+			if attempt > 3 {
+				return fmt.Errorf("%s, retried 4 times", err.Error())
+			}
+			time.Sleep(time.Second * time.Duration(attempt) * 2)
+			continue
 		}
-		return errors.New(errorRes.Error)
-	}
 
-	if unmarshalResInto != nil {
-		return json.Unmarshal(resBody, unmarshalResInto)
+		resBody, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+
+		if res.StatusCode >= 400 && res.StatusCode < 600 {
+			errorRes := struct {
+				Error string `json:"error"`
+			}{}
+			err = json.Unmarshal(resBody, &errorRes)
+			if err != nil {
+				return fmt.Errorf("server returned %d code, with body %s", res.StatusCode, string(resBody))
+			}
+			return errors.New(errorRes.Error)
+		}
+
+		if unmarshalResInto != nil {
+			return json.Unmarshal(resBody, unmarshalResInto)
+		}
+		return nil
 	}
-	return nil
 }
 
 // NoCredentials returns true if the SetCredentials method was not yet called and we aren't in mock mode
