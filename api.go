@@ -13,13 +13,21 @@ import (
 	"time"
 )
 
-// API holds information used to communicate with the RT-CV api
-type API struct {
+type serverConn struct {
 	authHeaderValue string
 	serverLocation  string
-	Cache           map[string]time.Time
-	MockMode        bool
-	MockOptions     MockOptions
+}
+
+// API holds information used to communicate with the RT-CV api
+type API struct {
+	primaryConnection int
+	connections       []serverConn
+
+	MockMode    bool
+	mockCache   map[string]time.Time
+	MockOptions MockOptions
+
+	Cache map[string]time.Time
 }
 
 // MockOptions represends options for the RT-CV mocking mode
@@ -34,45 +42,84 @@ func NewAPI() *API {
 	}
 }
 
+// SetMockMode enables mock mode, which can be used for testing
+func (a *API) SetMockMode(options MockOptions) {
+	a.connections = nil
+
+	a.MockMode = true
+	a.mockCache = map[string]time.Time{}
+	a.MockOptions = options
+}
+
+// SetCredentialsArg contains the credentials used to authenticate with RT-CV
+type SetCredentialsArg struct {
+	ServerLocation string `json:"server_location"`
+	APIKeyID       string `json:"api_key_id"`
+	APIKey         string `json:"api_key"`
+	Primary        bool   `json:"primary"`
+}
+
 // SetCredentials sets the api credentials so we can make fetch requests to RT-CV
-func (a *API) SetCredentials(serverLocation, apiKeyID, apiKey string, runAsMockWithOpts *MockOptions) error {
-	a.MockMode = runAsMockWithOpts != nil
-	if a.MockMode {
-		a.MockOptions = *runAsMockWithOpts
-		a.MockMode = true
-		return nil
+func (a *API) SetCredentials(credentialsList []SetCredentialsArg) error {
+	a.MockMode = false
+	a.primaryConnection = -1
+
+	a.connections = []serverConn{}
+	for idx, credentials := range credentialsList {
+		conn := serverConn{}
+
+		if credentials.ServerLocation == "" {
+			return errors.New("server_location cannot be empty")
+		}
+		conn.serverLocation = credentials.ServerLocation
+
+		if credentials.APIKeyID == "" {
+			return errors.New("api_key_id cannot be empty")
+		}
+		if credentials.APIKey == "" {
+			return errors.New("api_key cannot be empty")
+		}
+		hashedAPIKey := sha512.Sum512([]byte(credentials.APIKey))
+		hashedAPIKeyStr := hex.EncodeToString(hashedAPIKey[:])
+		conn.authHeaderValue = "Basic " + credentials.APIKeyID + ":" + hashedAPIKeyStr
+
+		a.connections = append(a.connections, conn)
+
+		if credentials.Primary {
+			if a.primaryConnection == -1 {
+				a.primaryConnection = idx
+			} else {
+				return errors.New("can only have one primary connection")
+			}
+		}
 	}
 
-	if serverLocation == "" {
-		return errors.New("server_location cannot be empty")
+	switch len(credentialsList) {
+	case 0:
+		return errors.New("you cannot define no connections")
+	case 1:
+		a.primaryConnection = 0
+	case 2:
+		if a.primaryConnection == -1 {
+			return errors.New("when defineing multiple connections, one must be set as primary")
+		}
 	}
-	a.serverLocation = serverLocation
-
-	if apiKeyID == "" {
-		return errors.New("api_key_id cannot be empty")
-	}
-	if apiKey == "" {
-		return errors.New("api_key cannot be empty")
-	}
-	hashedAPIKey := sha512.Sum512([]byte(apiKey))
-	hashedAPIKeyStr := hex.EncodeToString(hashedAPIKey[:])
-	a.authHeaderValue = "Basic " + apiKeyID + ":" + hashedAPIKeyStr
 
 	return nil
 }
 
 // Get makes a get request to RT-CV
-func (a *API) Get(path string, unmarshalResInto interface{}) error {
-	return a.DoRequest("GET", path, nil, unmarshalResInto)
+func (c *serverConn) Get(path string, unmarshalResInto interface{}) error {
+	return c.DoRequest("GET", path, nil, unmarshalResInto)
 }
 
 // Post makes a post request to RT-CV
-func (a *API) Post(path string, body interface{}, unmarshalResInto interface{}) error {
-	return a.DoRequest("POST", path, body, unmarshalResInto)
+func (c *serverConn) Post(path string, body interface{}, unmarshalResInto interface{}) error {
+	return c.DoRequest("POST", path, body, unmarshalResInto)
 }
 
 // DoRequest makes a http request to RT-CV
-func (a *API) DoRequest(method, path string, body, unmarshalResInto interface{}) error {
+func (c *serverConn) DoRequest(method, path string, body, unmarshalResInto interface{}) error {
 	var reqBody io.ReadCloser
 	if body != nil {
 		reqBodyBytes, err := json.Marshal(body)
@@ -81,14 +128,14 @@ func (a *API) DoRequest(method, path string, body, unmarshalResInto interface{})
 		}
 		reqBody = ioutil.NopCloser(bytes.NewBuffer(reqBodyBytes))
 	}
-	req, err := http.NewRequest(method, a.serverLocation+path, reqBody)
+	req, err := http.NewRequest(method, c.serverLocation+path, reqBody)
 	if err != nil {
 		return err
 	}
 
 	req.Header.Add("Content-Type", "application/json")
-	if a.authHeaderValue != "" {
-		req.Header.Add("Authorization", a.authHeaderValue)
+	if c.authHeaderValue != "" {
+		req.Header.Add("Authorization", c.authHeaderValue)
 	}
 
 	attempt := 0
@@ -128,7 +175,7 @@ func (a *API) DoRequest(method, path string, body, unmarshalResInto interface{})
 
 // NoCredentials returns true if the SetCredentials method was not yet called and we aren't in mock mode
 func (a *API) NoCredentials() bool {
-	return a.authHeaderValue == "" && !a.MockMode
+	return len(a.connections) == 0 && !a.MockMode
 }
 
 // ErrMissingCredentials is returned when the SetCredentials method was not yet called
@@ -150,7 +197,7 @@ func (a *API) GetSecret(key, encryptionKey string, result interface{}) error {
 	if a.NoCredentials() {
 		return ErrMissingCredentials
 	}
-	return a.Get(fmt.Sprintf("/api/v1/secrets/myKey/%s/%s", key, encryptionKey), result)
+	return a.connections[a.primaryConnection].Get(fmt.Sprintf("/api/v1/secrets/myKey/%s/%s", key, encryptionKey), result)
 }
 
 // GetUsersSecret returns strictly defined users secret
@@ -190,10 +237,12 @@ func (a *API) CacheEntryExists(referenceNr string) bool {
 		)
 		if expired {
 			delete(a.Cache, referenceNr)
-			cacheEntryExists = false
+		} else {
+			return true
 		}
 	}
-	return cacheEntryExists
+
+	return false
 }
 
 // UserSecret represents the json layout of an user secret

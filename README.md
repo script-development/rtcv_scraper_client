@@ -15,25 +15,65 @@ custom scraper <> rtcv_scraper_client (this project) <> RT-CV
 5. rtcv_scraper_client sends the scraped data to rt-cv and reports if it was successfull
 6. ...
 
-## What this should do?
-
-- [x] Handle authentication
-- [x] Publish CVs
-- [ ] Handle secrets
-    - [x] Get
-    - [ ] Set
-- [x] Remember the reference numbers of the scraped data
-
 ## Methods
 
-### `set_credentials`
+### Authentication
 
-Set credentials and let the clint know where the server is
+There are 3 authentication methods
+- `set_credentials` if you have one RT-CV server
+- `set_multiple_credentials` if you have multiple RT-CV servers
+- `set_mock` if you want to debug a scraper, this mocks the RT-CV server
+
+#### `set_credentials`
+
+Set credentials and location of a RT-CV server
 
 Example input
 
 ```json
-{"type":"set_credentials","content":{"server_location":"http://localhost:4000","api_key_id":"111111111111111111111111","api_key":"ddd","mock":null}}
+{"type":"set_credentials","content":{"server_location":"http://localhost:4000","api_key_id":"111111111111111111111111","api_key":"ddd"}}
+```
+
+Ok Response
+
+```json
+{"type":"ok"}
+```
+
+#### `set_multiple_credentials`
+
+Set credentials and location of multiple RT-CV servers
+
+Note that we need to define which server the primary should be, the primary server is used to fetch secrets and recently scraped reference numbers
+
+Example input
+
+```json
+{"type":"set_credentials","content":[{"primary":true,"server_location":"http://localhost:4000","api_key_id":"111111111111111111111111","api_key":"ddd"},{"server_location":"http://localhost:4000","api_key_id":"111111111111111111111111","api_key":"ddd"}]}
+```
+
+Ok Response
+
+```json
+{"type":"ok"}
+```
+
+#### `set_mock`
+
+Enable mock mode
+
+Example input:
+
+```json
+{"type":"set_mock","content":{}}
+```
+
+You can also provide mock secrets for the `*_secret` methods.
+
+This object need to follow the following type convention `key (string) -> value (any)`
+
+```json
+{"type":"set_mock","content":{"secrets":{"users": [{"username":"foo","password":"bar"}],"user":{"username":"foo","password":"bar"}}}}
 ```
 
 Ok Response
@@ -156,23 +196,6 @@ Ok Response
 ```json
 {"type":"pong"}
 ```
-
-## RT-CV mocking
-
-This library can also mock request send to RT-CV by providing `set_credentials` with the following
-
-```json
-{"type":"set_credentials","content":{"mock":{}}}
-```
-
-You can also provide mock secrets for the `*_secret` methods.
-
-This object need to follow the following type convention `key (string) -> value (any)`
-
-```json
-{"type":"set_credentials","content":{"mock":{"secrets":{"users": [{"username":"foo","password":"bar"}],"user":{"username":"foo","password":"bar"}}}}}
-```
-
 
 ## How to develop
 

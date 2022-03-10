@@ -154,59 +154,74 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 	}
 
 	switch input.Type {
-	case "set_credentials":
-		credentialsArgs := struct {
-			ServerLocation string       `json:"server_location"`
-			APIKeyID       string       `json:"api_key_id"`
-			APIKey         string       `json:"api_key"`
-			Mock           *MockOptions `json:"mock"` // Null means disabled
-		}{}
-		err = json.Unmarshal(input.Content, &credentialsArgs)
-		if err != nil {
-			return returnErr(err)
+	case "set_credentials", "set_multiple_credentials", "set_mock":
+		switch input.Type {
+		case "set_credentials":
+			credentialsArgs := SetCredentialsArg{}
+			err = json.Unmarshal(input.Content, &credentialsArgs)
+			if err != nil {
+				return returnErr(err)
+			}
+
+			err = api.SetCredentials([]SetCredentialsArg{credentialsArgs})
+			if err != nil {
+				return returnErr(err)
+			}
+		case "set_multiple_credentials":
+			credentialsArgs := []SetCredentialsArg{}
+			err = json.Unmarshal(input.Content, &credentialsArgs)
+			if err != nil {
+				return returnErr(err)
+			}
+
+			err = api.SetCredentials(credentialsArgs)
+			if err != nil {
+				return returnErr(err)
+			}
+		case "set_mock":
+			options := MockOptions{}
+			err = json.Unmarshal(input.Content, &options)
+			if err != nil {
+				return returnErr(err)
+			}
+
+			api.SetMockMode(options)
 		}
 
-		err = api.SetCredentials(
-			credentialsArgs.ServerLocation,
-			credentialsArgs.APIKeyID,
-			credentialsArgs.APIKey,
-			credentialsArgs.Mock,
-		)
-		if err != nil {
-			return returnErr(err)
-		}
 		if api.MockMode {
 			return MessageTypeOk, nil
 		}
 
-		err = api.Get("/api/v1/health", nil)
-		if err != nil {
-			return returnErr(err)
-		}
-
-		apiKeyInfo := struct {
-			Roles []struct {
-				Role uint64 `json:"role"`
-			} `json:"roles"`
-		}{}
-		err := api.Get("/api/v1/auth/keyinfo", &apiKeyInfo)
-		if err != nil {
-			return returnErr(err)
-		}
-
-		hasScraperRole := false
-		for _, role := range apiKeyInfo.Roles {
-			if role.Role == 1 {
-				hasScraperRole = true
-				break
+		for _, conn := range api.connections {
+			err = conn.Get("/api/v1/health", nil)
+			if err != nil {
+				return returnErr(err)
 			}
-		}
-		if !hasScraperRole {
-			return returnErr(errors.New("provided key does not have scraper role (nr 1)"))
+
+			apiKeyInfo := struct {
+				Roles []struct {
+					Role uint64 `json:"role"`
+				} `json:"roles"`
+			}{}
+			err = conn.Get("/api/v1/auth/keyinfo", &apiKeyInfo)
+			if err != nil {
+				return returnErr(err)
+			}
+
+			hasScraperRole := false
+			for _, role := range apiKeyInfo.Roles {
+				if role.Role == 1 {
+					hasScraperRole = true
+					break
+				}
+			}
+			if !hasScraperRole {
+				return returnErr(errors.New("provided key does not have scraper role (nr 1)"))
+			}
 		}
 
 		referenceNrs := []string{}
-		err = api.Get("/api/v1/scraper/scannedReferenceNrs/since/days/3", &referenceNrs)
+		err = api.connections[api.primaryConnection].Get("/api/v1/scraper/scannedReferenceNrs/since/days/30", &referenceNrs)
 		if err != nil {
 			return returnErr(err)
 		}
@@ -245,9 +260,11 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 		if !api.MockMode {
 			scanCVBody := json.RawMessage(`{"cv":` + string(input.Content) + `}`)
 
-			err = api.Post("/api/v1/scraper/scanCV", scanCVBody, nil)
-			if err != nil {
-				return returnErr(err)
+			for _, conn := range api.connections {
+				err = conn.Post("/api/v1/scraper/scanCV", scanCVBody, nil)
+				if err != nil {
+					return returnErr(err)
+				}
 			}
 		}
 
