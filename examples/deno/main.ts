@@ -29,22 +29,21 @@ export class RtCvClient {
         await this.firstLineReader;
 
         try {
-            await this.rwLine(
-                "set_credentials",
-                credentials.mock
-                    ? {
-                        mock: { secrets: credentials.mockSecrets },
-                    }
-                    : {
+            if (credentials.mock)
+                await this.rwLine("set_mock", { secrets: credentials.mockSecrets });
+            else
+                await this.rwLine(
+                    "set_credentials",
+                    {
                         server_location: credentials.serverLocation,
                         api_key_id: credentials.keyId,
                         api_key: credentials.key,
                     },
-            );
+                );
         } catch (e) {
             console.log(e);
             console.log(
-                "Hint: did you set the envourment variables using your shell or the .env?",
+                "Hint: did you set the environment variables using your shell or the .env?",
             );
             Deno.exit(1);
         }
