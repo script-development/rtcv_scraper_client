@@ -94,8 +94,10 @@ Example input
 
 Ok Response
 
+*The content represents if a match was made*
+
 ```json
-{"type":"ok"}
+{"type":"ok","content":true}
 ```
 
 ### `get_secret`

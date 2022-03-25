@@ -255,20 +255,34 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 			return MessageTypeOk, nil
 		}
 
-		api.Cache[referenceNr] = time.Now()
-
-		if !api.MockMode {
+		hasMatch := false
+		if api.MockMode {
+			api.Cache[referenceNr] = time.Now()
+			hasMatch = true
+		} else {
 			scanCVBody := json.RawMessage(`{"cv":` + string(input.Content) + `}`)
 
-			for _, conn := range api.connections {
-				err = conn.Post("/api/v1/scraper/scanCV", scanCVBody, nil)
+			for idx, conn := range api.connections {
+				var response struct {
+					HasMatches bool `json:"hasMatches"`
+				}
+
+				err = conn.Post("/api/v1/scraper/scanCV", scanCVBody, &response)
 				if err != nil {
 					return returnErr(err)
+				}
+
+				if idx == api.primaryConnection {
+					hasMatch = response.HasMatches
+					if hasMatch {
+						// Only cache the CVs that where matched to something
+						api.Cache[referenceNr] = time.Now()
+					}
 				}
 			}
 		}
 
-		return MessageTypeOk, nil
+		return MessageTypeOk, hasMatch
 	case "get_secret", "get_users_secret", "get_user_secret":
 		getSecretArgs := struct {
 			Key           string `json:"key"`
