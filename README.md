@@ -199,7 +199,7 @@ Ok Response
 {"type":"pong"}
 ```
 
-## How to develop
+## How to develop / Debug
 
 ```sh
 # After a change update the binary in your path using:
@@ -212,12 +212,21 @@ go run .
 
 Debug data send by scraper to this program
 ```sh
+# Logs the IO to scraper_client_input.log
 export LOG_SCRAPER_CLIENT_INPUT=true
+
+# Logs the debug messages to scraper_client.log
+export ENABLE_SCRAPER_CLIENT_LOG=true
+
 # Now run your scraper
 go run .
 
 # Now all messages written to this program are also written to scraper_client_input.log
-# You can follow the input by tailing the file:
+# You can follow the input by tailing the file in a new terminal:
+tail -f scraper_client_input.log
+
+# All debug messages are now visible in scraper_client.log
+# You can follow the input by tailing the file in a new terminal:
 tail -f scraper_client_input.log
 
 # After collecting the input data you can also use rtcv_scraper_client to replay sending the data
@@ -229,6 +238,7 @@ rtcv_scraper_client \
     -replay ../werk-scraper/scraper_client_input.log \
     -replaySkipCommands has_cached_reference,set_cached_reference,ping,get_users_secret
 ```
+
 
 ## How to ship?
 

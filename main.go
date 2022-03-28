@@ -89,11 +89,7 @@ func main() {
 
 	api := NewAPI()
 
-	logInput := map[string]bool{
-		"1":    true,
-		"t":    true,
-		"true": true,
-	}[strings.ToLower(os.Getenv("LOG_SCRAPER_CLIENT_INPUT"))]
+	logInput := truthyStringValues[strings.ToLower(os.Getenv("LOG_SCRAPER_CLIENT_INPUT"))]
 
 	var logInputFile *os.File
 	var err error
@@ -226,6 +222,8 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 			return returnErr(err)
 		}
 
+		DebugToLogfile(referenceNrs)
+
 		now := time.Now()
 		for _, nr := range referenceNrs {
 			api.Cache[nr] = now
@@ -335,7 +333,10 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 			return MessageTypeOk, nil
 		}
 
-		return MessageTypeOk, api.CacheEntryExists(referenceNr)
+		hasCachedReference := api.CacheEntryExists(referenceNr)
+		DebugToLogfile("has_cached_reference", referenceNr, ">", hasCachedReference)
+
+		return MessageTypeOk, hasCachedReference
 	case "ping":
 		return MessageTypePong, nil
 	default:
