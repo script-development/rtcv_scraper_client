@@ -224,9 +224,8 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 
 		DebugToLogfile(referenceNrs)
 
-		now := time.Now()
 		for _, nr := range referenceNrs {
-			api.Cache[nr] = now
+			api.SetCacheEntry(nr, time.Hour*72) // 3 days
 		}
 
 		return MessageTypeOk, nil
@@ -255,7 +254,7 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 
 		hasMatch := false
 		if api.MockMode {
-			api.Cache[referenceNr] = time.Now()
+			api.SetCacheEntry(referenceNr, time.Hour*72)
 			hasMatch = true
 		} else {
 			scanCVBody := json.RawMessage(`{"cv":` + string(input.Content) + `}`)
@@ -274,7 +273,7 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 					hasMatch = response.HasMatches
 					if hasMatch {
 						// Only cache the CVs that where matched to something
-						api.Cache[referenceNr] = time.Now()
+						api.SetCacheEntry(referenceNr, time.Hour*72) // 3 days
 					}
 				}
 			}
@@ -317,7 +316,7 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 		default:
 			return returnErr(errors.New("unknown secret"))
 		}
-	case "set_cached_reference", "has_cached_reference":
+	case "set_cached_reference", "set_short_cached_reference", "has_cached_reference":
 		referenceNr := ""
 		err = json.Unmarshal(input.Content, &referenceNr)
 		if err != nil {
@@ -328,11 +327,16 @@ func LoopAction(api *API, inputJSON string) (msgType MessageType, msgContent int
 			return returnErr(errors.New("reference number cannot be an empty string"))
 		}
 
-		if input.Type == "set_cached_reference" {
-			api.Cache[referenceNr] = time.Now()
+		switch input.Type {
+		case "set_cached_reference":
+			api.SetCacheEntry(referenceNr, time.Hour*72) // 3 days
+			return MessageTypeOk, nil
+		case "set_short_cached_reference":
+			api.SetCacheEntry(referenceNr, time.Hour*12) // 0.5 days
 			return MessageTypeOk, nil
 		}
 
+		// has_cached_reference
 		hasCachedReference := api.CacheEntryExists(referenceNr)
 		DebugToLogfile("has_cached_reference", referenceNr, ">", hasCachedReference)
 

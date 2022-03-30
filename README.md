@@ -84,7 +84,7 @@ Ok Response
 
 ### `send_cv`
 
-Send a scraped CV to RT-CV
+Send a scraped CV to RT-CV and triggers the `set_cached_reference` for the reference number of this cv if there where matches on this CV
 
 Example input
 
@@ -150,7 +150,7 @@ Ok Response
 
 ### `set_cached_reference`
 
-Save a reference number to the cache
+Save a reference number to the cache with a timeout of 3 days
 This cache is used to avoid sending the same CV twice or scraping data that has already been scraped
 
 *Note that "send_cv" also executes this function automatically*
@@ -166,6 +166,10 @@ Ok Response
 ```json
 {"type":"ok"}
 ```
+
+### `set_short_cached_reference`
+
+Same as previouse one except this one has a time out of 12 hours
 
 ### `has_cached_reference`
 

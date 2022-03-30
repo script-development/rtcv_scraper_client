@@ -228,21 +228,23 @@ func (a *API) GetUserSecret(key, encryptionKey string) (UserSecret, error) {
 	return result, err
 }
 
+// SetCacheEntry sets a cache entry for the reference number that expires after the duration
+func (a *API) SetCacheEntry(referenceNr string, duration time.Duration) {
+	a.Cache[referenceNr] = time.Now().Add(duration)
+}
+
 // CacheEntryExists returns true if the cache entry exists and is not expired
 func (a *API) CacheEntryExists(referenceNr string) bool {
 	cacheEntryInsertionTime, cacheEntryExists := a.Cache[referenceNr]
-	if cacheEntryExists {
-		expired := time.Now().After(
-			cacheEntryInsertionTime.Add(time.Hour * 72), // 3 days
-		)
-		if expired {
-			delete(a.Cache, referenceNr)
-		} else {
-			return true
-		}
+	if !cacheEntryExists {
+		return false
 	}
 
-	return false
+	expired := time.Now().After(cacheEntryInsertionTime)
+	if expired {
+		delete(a.Cache, referenceNr)
+	}
+	return !expired
 }
 
 // UserSecret represents the json layout of an user secret
