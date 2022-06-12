@@ -17,7 +17,7 @@ A [Deno](https://deno.land) client that can be used by a scraper to ease communi
     ],
     "login_users": [
         {"username": "scraping-site-username", "password": "scraping-site-password"}
-    ],
+    ]
 }
 ```
 
