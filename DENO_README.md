@@ -10,7 +10,7 @@ A [Deno](https://deno.land) client that can be used by a scraper to ease communi
     "primary_server": {
         "server_location": "http://localhost:4000",
         "api_key_id": "aa",
-        "api_key": "bbb",
+        "api_key": "bbb"
     },
     "alternative_servers": [
         // If you want to send CVs to multiple servers you can add additional servers here
