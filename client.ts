@@ -111,6 +111,11 @@ class ServerConn {
         }
 
         const req = await fetch(url, options)
+        // TODO retry if server is not available
+        if (req.status >= 400) {
+            const text = await req.text()
+            throw `server responsed with [${req.status}] ${req.statusText}: ${text}`
+        }
         return await req.json()
     }
 
