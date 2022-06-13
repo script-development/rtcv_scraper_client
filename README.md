@@ -1,5 +1,7 @@
 # For Deno client readme [click here](./DENO_README.md)
 
+# For the v2 scraper client readme [click here](./V2_README.md)
+
 # RT-CV scraper client
 
 A client that can be spawned by a scraper to ease communication with [RT-CV](https://github.com/script-development/RT-CV)

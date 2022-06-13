@@ -14,6 +14,11 @@ import (
 )
 
 func main() {
+	if strings.ToLower(os.Getenv("SCRAPER_CLIENT_V2")) == "true" {
+		newMain()
+		return
+	}
+
 	replayFile := ""
 	replaySkipCommands := ""
 	repeatReplay := uint(1)
