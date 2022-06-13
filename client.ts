@@ -3,6 +3,7 @@ export { newCvToScan, LangLevel } from './cv.ts'
 
 import { envT, readEnv, serverT } from './env.ts'
 import { CVToScan } from './cv.ts'
+import { fetchWithRetry } from './utils.ts'
 
 import { Sha512 } from "https://deno.land/std@0.143.0/hash/sha512.ts"
 
@@ -110,8 +111,7 @@ class ServerConn {
             body: body ? JSON.stringify(body) : undefined,
         }
 
-        const req = await fetch(url, options)
-        // TODO retry if server is not available
+        const req = await fetchWithRetry(url, options)
         if (req.status >= 400) {
             const text = await req.text()
             throw `server responsed with [${req.status}] ${req.statusText}: ${text}`
