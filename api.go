@@ -23,16 +23,10 @@ type API struct {
 	primaryConnection int
 	connections       []serverConn
 
-	MockMode    bool
-	mockCache   map[string]time.Time
-	MockOptions MockOptions
+	MockMode  bool
+	mockCache map[string]time.Time
 
 	Cache map[string]time.Time
-}
-
-// MockOptions represends options for the RT-CV mocking mode
-type MockOptions struct {
-	Secrets map[string]json.RawMessage `json:"secrets"`
 }
 
 // NewAPI creates a new instance of the API
@@ -43,12 +37,11 @@ func NewAPI() *API {
 }
 
 // SetMockMode enables mock mode, which can be used for testing
-func (a *API) SetMockMode(options MockOptions) {
+func (a *API) SetMockMode() {
 	a.connections = nil
 
 	a.MockMode = true
 	a.mockCache = map[string]time.Time{}
-	a.MockOptions = options
 }
 
 // SetCredentialsArg contains the credentials used to authenticate with RT-CV
@@ -182,52 +175,6 @@ func (a *API) NoCredentials() bool {
 // while we're trying to execute an action that requires them
 var ErrMissingCredentials = errors.New("missing credentials, call set_credentials before this method")
 
-// GetSecret returns a secret from RT-CV
-func (a *API) GetSecret(key, encryptionKey string, result interface{}) error {
-	if a.MockMode {
-		if a.MockOptions.Secrets == nil {
-			return json.Unmarshal([]byte("null"), result)
-		}
-		secret, ok := a.MockOptions.Secrets[key]
-		if !ok || secret == nil {
-			return json.Unmarshal([]byte("null"), result)
-		}
-		return json.Unmarshal(secret, result)
-	}
-	if a.NoCredentials() {
-		return ErrMissingCredentials
-	}
-	return a.connections[a.primaryConnection].Get(fmt.Sprintf("/api/v1/secrets/myKey/%s/%s", key, encryptionKey), result)
-}
-
-// GetUsersSecret returns strictly defined users secret
-func (a *API) GetUsersSecret(key, encryptionKey string) ([]UserSecret, error) {
-	if a.NoCredentials() {
-		return []UserSecret{}, ErrMissingCredentials
-	}
-	if key == "" {
-		key = "users"
-	}
-
-	result := []UserSecret{}
-	err := a.GetSecret(key, encryptionKey, &result)
-	return result, err
-}
-
-// GetUserSecret returns strictly defined user secret
-func (a *API) GetUserSecret(key, encryptionKey string) (UserSecret, error) {
-	if a.NoCredentials() {
-		return UserSecret{}, ErrMissingCredentials
-	}
-	if key == "" {
-		key = "user"
-	}
-
-	result := UserSecret{}
-	err := a.GetSecret(key, encryptionKey, &result)
-	return result, err
-}
-
 // SetCacheEntry sets a cache entry for the reference number that expires after the duration
 func (a *API) SetCacheEntry(referenceNr string, duration time.Duration) {
 	a.Cache[referenceNr] = time.Now().Add(duration)
@@ -245,10 +192,4 @@ func (a *API) CacheEntryExists(referenceNr string) bool {
 		delete(a.Cache, referenceNr)
 	}
 	return !expired
-}
-
-// UserSecret represents the json layout of an user secret
-type UserSecret struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
 }

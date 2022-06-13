@@ -1,112 +1,26 @@
-import { readLines } from "https://deno.land/std@0.117.0/io/mod.ts";
-
 export class RtCvClient {
-    private proc: Deno.Process;
-    private textEncoder = new TextEncoder();
-    private firstLineReader: Promise<string>;
-    private linePromiseResolveFn: (value: string) => void = () => { };
+    private serverOrigin = Deno.env.get('SCRAPER_ADDRESS')
+    private async fetch<T>(path: string, body?: BodyInit | null | undefined): Promise<T> {
+        if (!this.serverOrigin) throw 'it seems like you are running this scraper outside of rtcv_scraper_client, make sure you are using rtcv_scraper_client to run this scraper'
 
-    constructor() {
-        this.proc = Deno.run({
-            cmd: ["rtcv_scraper_client"],
-            stdin: "piped",
-            stdout: "piped",
-        });
-
-        this.panicOnExit();
-        this.awaitProcStdOut();
-        this.firstLineReader = this.readLine();
+        const req = await fetch(this.serverOrigin + path, { body: body })
+        if (req.status >= 400) throw await req.text()
+        return await req.json()
     }
-
-    async authenticate(credentials: {
-        serverLocation?: string;
-        keyId?: string;
-        key?: string;
-        mock?: boolean;
-        mockSecrets?: { [key: string]: unknown };
-    }) {
-        // await the ready message
-        await this.firstLineReader;
-
-        try {
-            if (credentials.mock)
-                await this.rwLine("set_mock", { secrets: credentials.mockSecrets });
-            else
-                await this.rwLine(
-                    "set_credentials",
-                    {
-                        server_location: credentials.serverLocation,
-                        api_key_id: credentials.keyId,
-                        api_key: credentials.key,
-                    },
-                );
-        } catch (e) {
-            console.log(e);
-            console.log(
-                "Hint: did you set the environment variables using your shell or the .env?",
-            );
-            Deno.exit(1);
-        }
+    sendCV(cv: unknown): Promise<void> {
+        return this.fetch("/send_cv", JSON.stringify(cv))
     }
-
-    // This is the main way of communicating with the client
-    async rwLine<In, Out>(type: string, content: In): Promise<Out> {
-        const lineReader = this.readLine<Out>();
-        await this.writeLine(type, content);
-        return await lineReader;
+    hasCachedReference(nr: string): Promise<boolean> {
+        return this.fetch('/get_cached_reference', nr)
     }
-
-    private async panicOnExit() {
-        await this.proc.status();
-        console.log("rtcv scraper client stopped unexpectedly");
-        Deno.exit(1);
+    setCachedReference(nr: string): Promise<void> {
+        return this.fetch('/set_cached_reference', nr)
     }
-
-    private async awaitProcStdOut() {
-        for await (
-            const line of readLines(this.proc.stdout as (Deno.Reader & Deno.Closer))
-        ) {
-            this.linePromiseResolveFn(line);
-        }
-    }
-
-    private async readLine<T>(): Promise<T> {
-        const line = await new Promise<string>((res) =>
-            this.linePromiseResolveFn = res
-        );
-        const parsedLine: { type: string; content: T } = JSON.parse(line);
-        if (parsedLine.type === "error") {
-            throw `request send to rtcv_scraper_client returned an error: ${parsedLine.content}`;
-        }
-        return parsedLine.content;
-    }
-
-    private async writeLine<T>(type: string, content: T): Promise<void> {
-        const input = this.textEncoder.encode(
-            JSON.stringify({ type, content }) + "\n",
-        );
-        await this.proc.stdin?.write(input);
+    getUsers(): Promise<Array<{ username: string, password: string }>> {
+        return this.fetch('/users')
     }
 }
 
-const rtcvClient = new RtCvClient();
-await rtcvClient.authenticate({
-    mock: true,
-    mockSecrets: { user: { username: "foo", password: "bar" } },
-});
-// await rtcvClient.authenticate({
-//     key: 'abc',
-//     keyId: '1',
-//     serverLocation: 'http://localhost:4000',
-// })
-console.log("authenticated to RTCV");
-
-const siteLoginCredentials = await rtcvClient.rwLine(
-    "get_user_secret",
-    {
-        "encryption_key": "my-very-secret-encryption-key",
-        "key": "user",
-    },
-);
-console.log(siteLoginCredentials);
-Deno.exit(0);
+const rtcvClient = new RtCvClient()
+const siteLoginCredentials = await rtcvClient.getUsers()
+console.log('siteLoginCredentials:', siteLoginCredentials)

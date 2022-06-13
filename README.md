@@ -1,261 +1,125 @@
-# For Deno client readme [click here](./DENO_README.md)
-
-# For the v2 scraper client readme [click here](./V2_README.md)
-
 # RT-CV scraper client
 
-A client that can be spawned by a scraper to ease communication with [RT-CV](https://github.com/script-development/RT-CV)
+A helper program that aims to ease the communication between a scraper and [RT-CV](https://github.com/script-development/RT-CV)
 
-## Communication flow
+## How does this work?
 
+This scraper client handles authentication and communication with RT-CV and beside that also has a cache for the already fetched reference numbers.
+
+This scraper works like this:
+
+1. You run `rtcv_scraper_client` in your terminal
+2. The scraper client reads `env.json` and authenticates with RT-CV
+3. The scraper client spawns the program you have defined as args for the `rtcv_scraper_client`, for example with an npm scraper it would be something like `rtcv_scraper_client npm run start`
+4. Your scraper can now easially talk with `RT-CV` via `rtcv_scraper_client` using http requests where the http server address is defiend by a shell variable set by the scraper client `$SCRAPER_ADDRESS`
+
+## Why this client?
+
+Every scraper needs to communicate with RT-CV and the amound of code that require is quite a lot.
+
+If we have the same code for communicating with RT-CV we only have a single point of failure and updating / adding features is easy.
+
+## Example
+
+A Deno example
+
+```ts
+// denoexample.ts
+const req = await fetch(Deno.env.get('SCRAPER_ADDRESS') + '/users')
+const users = await req.json()
+console.log(users)
 ```
-custom scraper <> rtcv_scraper_client (this project) <> RT-CV
-```
-
-1. The custom scraper spawns rtcv_scraper_client as child process
-2. The custom scraper sends it's credentials to the child process via stdin
-3. rtcv_scraper_client handles the authentication and reports if it went successfull
-4. The custom scraper starts scraping and sends every scraped result to it's child process (rtcv_scraper_client)
-5. rtcv_scraper_client sends the scraped data to rt-cv and reports if it was successfull
-6. ...
-
-## Methods
-
-### Authentication
-
-There are 3 authentication methods
-- `set_credentials` if you have one RT-CV server
-- `set_multiple_credentials` if you have multiple RT-CV servers
-- `set_mock` if you want to debug a scraper, this mocks the RT-CV server
-
-#### `set_credentials`
-
-Set credentials and location of a RT-CV server
-
-Example input
-
-```json
-{"type":"set_credentials","content":{"server_location":"http://localhost:4000","api_key_id":"111111111111111111111111","api_key":"ddd"}}
-```
-
-Ok Response
-
-```json
-{"type":"ok"}
-```
-
-#### `set_multiple_credentials`
-
-Set credentials and location of multiple RT-CV servers
-
-Note that we need to define which server the primary should be, the primary server is used to fetch secrets and recently scraped reference numbers
-
-Example input
-
-```json
-{"type":"set_credentials","content":[{"primary":true,"server_location":"http://localhost:4000","api_key_id":"111111111111111111111111","api_key":"ddd"},{"server_location":"http://localhost:4000","api_key_id":"111111111111111111111111","api_key":"ddd"}]}
-```
-
-Ok Response
-
-```json
-{"type":"ok"}
-```
-
-#### `set_mock`
-
-Enable mock mode
-
-Example input:
-
-```json
-{"type":"set_mock","content":{}}
-```
-
-You can also provide mock secrets for the `*_secret` methods.
-
-This object need to follow the following type convention `key (string) -> value (any)`
-
-```json
-{"type":"set_mock","content":{"secrets":{"users": [{"username":"foo","password":"bar"}],"user":{"username":"foo","password":"bar"}}}}
-```
-
-Ok Response
-
-```json
-{"type":"ok"}
-```
-
-### `send_cv`
-
-Send a scraped CV to RT-CV and triggers the `set_cached_reference` for the reference number of this cv if there where matches on this CV
-
-Example input
-
-```json
-{"type":"send_cv","content":{"reference_number":"abcd","..":".."}}
-```
-
-Ok Response
-
-*The content represents if a match was made*
-
-```json
-{"type":"ok","content":true}
-```
-
-### `get_secret`
-
-Get a user defined secret from the server
-
-Example input
-
-```json
-{"type":"get_secret","content":{"encryption_key":"my-very-secret-encryption-key", "key":"key-of-value"}}
-```
-
-Ok Response
-
-```jsonc
-{"type":"ok","content":{/*Based on the content stored in the secret value*/}}
-```
-
-### `get_users_secret`
-
-Get a secret from the server where the contents is a strictly defined list of users
-
-Example input
-
-```json
-{"type":"get_users_secret","content":{"encryption_key":"my-very-secret-encryption-key", "key":"users"}}
-```
-
-Ok Response
-
-```json
-{"type":"ok","content":[{"username":"foo","password":"foo"},{"username":"bar","password":"bar"}]}
-```
-
-### `get_user_secret`
-
-Get a secret from the server where the contents is a strictly defined user
-
-Example input
-
-```json
-{"type":"get_user_secret","content":{"encryption_key":"my-very-secret-encryption-key", "key":"user"}}
-```
-
-Ok Response
-
-```json
-{"type":"ok","content":{"username":"foo","password":"bar"}}
-```
-
-### `set_cached_reference`
-
-Save a reference number to the cache with a timeout of 3 days
-This cache is used to avoid sending the same CV twice or scraping data that has already been scraped
-
-*Note that "send_cv" also executes this function automatically*
-
-Example input
-
-```json
-{"type":"set_cached_reference","content":"abcd"}
-```
-
-Ok Response
-
-```json
-{"type":"ok"}
-```
-
-### `set_short_cached_reference`
-
-Same as previouse one except this one has a time out of 12 hours
-
-### `has_cached_reference`
-
-Is there a cache entry for a specific reference number?
-
-Example input
-
-```json
-{"type":"has_cached_reference","content":"abcd"}
-```
-
-Ok Response
-
-```json
-{"type":"ok","content":true}
-```
-
-### `ping`
-
-Send a ping message to the server and the server will respond with a pong
-
-Example input
-
-```json
-{"type":"ping"}
-```
-
-Ok Response
-
-```json
-{"type":"pong"}
-```
-
-## How to develop / Debug
 
 ```sh
-# After a change update the binary in your path using:
-go install
-
-# Then in your scraper project
-cd ../some-scraper
-go run .
+# rtcv_scraper_client deno run -A denoexample.ts
+credentials set
+testing connections..
+connected to RTCV
+running scraper..
+Check file:///.../denoexample.ts
+[ { username: "username here", password: "password here" } ]
 ```
 
-Debug data send by scraper to this program
+## Setup & Run
+
+### *1.* Install the helper
+
 ```sh
-# Logs the IO to scraper_client_input.log
-export LOG_SCRAPER_CLIENT_INPUT=true
-
-# Logs the debug messages to scraper_client.log
-export ENABLE_SCRAPER_CLIENT_LOG=true
-
-# Now run your scraper
-go run .
-
-# Now all messages written to this program are also written to scraper_client_input.log
-# You can follow the input by tailing the file in a new terminal:
-tail -f scraper_client_input.log
-
-# All debug messages are now visible in scraper_client.log
-# You can follow the input by tailing the file in a new terminal:
-tail -f scraper_client_input.log
-
-# After collecting the input data you can also use rtcv_scraper_client to replay sending the data
-# This is very handy for debugging
-rtcv_scraper_client -replay scraper_client_input.log
-
-# There are also additional options for the -replay command:
-rtcv_scraper_client \
-    -replay ./scraper_client_input.log \
-    -replaySkipCommands has_cached_reference,set_cached_reference,ping,get_users_secret
+go install github.com/script-development/rtcv_scraper_client@latest
 ```
 
+### *2.* Obtain a `env.json`
 
-## How to ship?
-
-Currently we don't have pre build binaries so you'll need to compile the binary yourself
-
-```Dockerfile
-FROM golang:alpine AS obtain-rtcv-client
-RUN go install github.com/script-development/rtcv_scraper_client@latest
-
-FROM denoland/deno:alpine AS runtime
-COPY --from=obtain-rtcv-client /go/bin/rtcv_scraper_client /bin/rtcv_scraper_client
+Create a `env.json` file with the following content **(this file can also be obtained from the RTCV dashboard, tough note that you might need to add login_users yourself)**
+```js
+{
+    "primary_server": {
+        "server_location": "http://localhost:4000",
+        "api_key_id": "aa",
+        "api_key": "bbb"
+    },
+    "alternative_servers": [
+        // If you want to send CVs to multiple servers you can add additional servers here
+    ],
+    "login_users": [
+        {"username": "scraping-site-username", "password": "scraping-site-password"}
+    ]
+}
 ```
+
+### *3.* Develop / Deploy a scraper using `rtcv_scraper_client`
+
+You can now prefix your scraper's run command with `rtcv_scraper_client` and the scraper client program will run a webserver as long as your scraper runs where via you can communicate with RT-CV.
+
+If you have for a NodeJS project you can run your program like this:
+
+```sh
+rtcv_scraper_client npm run start
+```
+
+## Routes available
+
+Notes:
+- The http method can be anything
+- If errors occur the response will be the error message with a 400 or higher status code
+
+### `$SCRAPER_ADDRESS/send_cv`
+
+Sends a cv to rtcv and remembers the reference number
+
+- Body: In JSON the cv send to RT-CV
+- Resp: **true** / **false** if the cv was sent to RT-CV
+
+### `$SCRAPER_ADDRESS/users`
+
+Returns the login users from the `env.json`
+
+- Body: None
+- Resp: **true** / **false** the login users from env.json
+
+### `$SCRAPER_ADDRESS/set_cached_reference`
+
+Manually add another cached reference with the default ttl (3 days)
+
+Note that this is also done by the send_cv route
+
+- Body: The reference number
+- Resp: **true**
+
+### `$SCRAPER_ADDRESS/set_short_cached_reference`
+
+manually add another cached reference with a short ttl (12 hours)
+
+- Body: The reference number
+- Resp: **true**
+
+### `$SCRAPER_ADDRESS/get_cached_reference`
+
+Check if a reference number is in the cache
+
+- Body: The reference number
+- Resp: **true** / **false**
+
+## Deno client docs
+
+[click here](./DENO_README.md)
