@@ -91,7 +91,17 @@ func startWebserver(env Env, api *API) {
 
 			ctx.Response.AppendBodyString("true")
 		case "/get_cached_reference":
-			ctx.Request.Body()
+			refNr := string(ctx.Request.Body())
+			if refNr == "" {
+				errorResp(ctx, 400, "reference number cannot be an empty string")
+				return
+			}
+
+			if api.CacheEntryExists(refNr) {
+				ctx.Response.AppendBodyString("true")
+			} else {
+				ctx.Response.AppendBodyString("false")
+			}
 		default:
 			errorResp(ctx, 404, "404 not found")
 			return
