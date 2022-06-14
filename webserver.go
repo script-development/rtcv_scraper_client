@@ -50,7 +50,7 @@ func startWebserver(env Env, api *API) {
 				api.SetCacheEntry(referenceNr, time.Hour*72)
 				hasMatch = true
 			} else {
-				scanCVBody := append(append([]byte(`{"cv":`), body...), '}')
+				scanCVBody := json.RawMessage(append(append([]byte(`{"cv":`), body...), '}'))
 
 				for idx, conn := range api.connections {
 					var response struct {

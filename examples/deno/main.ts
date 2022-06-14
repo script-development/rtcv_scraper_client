@@ -3,7 +3,7 @@ export class RtCvClient {
     private async fetch<T>(path: string, body?: BodyInit | null | undefined): Promise<T> {
         if (!this.serverOrigin) throw 'it seems like you are running this scraper outside of rtcv_scraper_client, make sure you are using rtcv_scraper_client to run this scraper'
 
-        const req = await fetch(this.serverOrigin + path, { body: body })
+        const req = await fetch(this.serverOrigin + path, { method: 'POST', body })
         if (req.status >= 400) throw await req.text()
         return await req.json()
     }
