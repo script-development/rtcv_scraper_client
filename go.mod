@@ -1,4 +1,4 @@
-module github.com/script-development/rtcv_scraper_client
+module github.com/script-development/rtcv_scraper_client/v2
 
 go 1.17
 
