@@ -45,7 +45,10 @@ Check file:///.../denoexample.ts
 ### *1.* Install the helper
 
 ```sh
-go install github.com/script-development/rtcv_scraper_client@latest
+# Install latest version
+go install github.com/script-development/rtcv_scraper_client/v2@latest
+# Install a spesific version
+go install github.com/script-development/rtcv_scraper_client/v2@v2.0.3
 ```
 
 ### *2.* Obtain a `env.json`
