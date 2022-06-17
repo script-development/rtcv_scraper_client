@@ -97,19 +97,24 @@ func main() {
 		credentials = append(credentials, server.toCredArg(false))
 	}
 
-	err = api.SetCredentials(credentials)
-	if err != nil {
-		log.Fatal(err)
+	// Turn on mock mode by default
+	api.SetMockMode()
+
+	if !env.MockMode {
+		err = api.SetCredentials(credentials)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println("credentials set")
+		fmt.Println("testing connections..")
+		testServerConnections(api)
+		fmt.Println("connected to RTCV")
+	} else {
+		fmt.Println("In mock mode")
+		fmt.Println("You can turn this off in by setting mock_mode to false in your env.json")
 	}
 
-	if env.MockMode {
-		api.SetMockMode()
-	}
-
-	fmt.Println("credentials set")
-	fmt.Println("testing connections..")
-	testServerConnections(api)
-	fmt.Println("connected to RTCV")
 	fmt.Println("running scraper..")
 
 	if len(os.Args) <= 1 {
@@ -136,9 +141,6 @@ func main() {
 }
 
 func testServerConnections(api *API) {
-	if api.MockMode {
-		return
-	}
 	for _, conn := range api.connections {
 		err := conn.Get("/api/v1/health", nil)
 		if err != nil {
