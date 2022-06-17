@@ -66,13 +66,16 @@ Create a `env.json` file with the following content **(this file can also be obt
     ],
     "login_users": [
         {"username": "scraping-site-username", "password": "scraping-site-password"}
-    ]
+    ],
+    "mock_mode": true
 }
 ```
 
 ### *3.* Develop / Deploy a scraper using `rtcv_scraper_client`
 
 You can now prefix your scraper's run command with `rtcv_scraper_client` and the scraper client program will run a webserver as long as your scraper runs where via you can communicate with RT-CV.
+
+Set `"mock_mode": true` in ur env.json for development 
 
 If you have for a NodeJS project you can run your program like this:
 

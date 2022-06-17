@@ -17,6 +17,7 @@ type Env struct {
 	PrimaryServer      EnvServer   `json:"primary_server"`
 	AlternativeServers []EnvServer `json:"alternative_servers"`
 	LoginUsers         []EnvUser   `json:"login_users"`
+	MockMode           bool        `json:"mock_mode"`
 }
 
 func (e *Env) validate() error {
@@ -100,6 +101,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	if env.MockMode {
+		api.SetMockMode()
+	}
+
 	fmt.Println("credentials set")
 	fmt.Println("testing connections..")
 	testServerConnections(api)
@@ -130,6 +136,9 @@ func main() {
 }
 
 func testServerConnections(api *API) {
+	if api.MockMode {
+		return
+	}
 	for _, conn := range api.connections {
 		err := conn.Get("/api/v1/health", nil)
 		if err != nil {
