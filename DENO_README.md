@@ -17,7 +17,9 @@ A [Deno](https://deno.land) client that can be used by a scraper to ease communi
     ],
     "login_users": [
         {"username": "scraping-site-username", "password": "scraping-site-password"}
-    ]
+    ],
+    // For production, set mock_mode to false
+    // "mock_mode": false 
 }
 ```
 

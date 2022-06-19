@@ -137,7 +137,7 @@ func (c *serverConn) DoRequest(method, path string, body, unmarshalResInto inter
 		if err != nil {
 			attempt++
 			if attempt > 3 {
-				return fmt.Errorf("%s, retried 4 times", err.Error())
+				return fmt.Errorf("%s retried 4 times", err.Error())
 			}
 			time.Sleep(time.Second * time.Duration(attempt) * 2)
 			continue

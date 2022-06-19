@@ -47,7 +47,7 @@ Check file:///.../denoexample.ts
 ```sh
 # Install latest version
 go install github.com/script-development/rtcv_scraper_client/v2@latest
-# Install a spesific version
+# Install a specific version
 go install github.com/script-development/rtcv_scraper_client/v2@v2.0.3
 ```
 
@@ -66,13 +66,17 @@ Create a `env.json` file with the following content **(this file can also be obt
     ],
     "login_users": [
         {"username": "scraping-site-username", "password": "scraping-site-password"}
-    ]
+    ],
+    // For production, set mock_mode to false
+    // "mock_mode": false 
 }
 ```
 
 ### *3.* Develop / Deploy a scraper using `rtcv_scraper_client`
 
 You can now prefix your scraper's run command with `rtcv_scraper_client` and the scraper client program will run a webserver as long as your scraper runs where via you can communicate with RT-CV.
+
+By default the program will run in `mock_mode`, for production you'll have to explicitly turn it off by setting `"mock_mode": false` in your env.json
 
 If you have for a NodeJS project you can run your program like this:
 

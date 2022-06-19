@@ -17,6 +17,7 @@ type Env struct {
 	PrimaryServer      EnvServer   `json:"primary_server"`
 	AlternativeServers []EnvServer `json:"alternative_servers"`
 	LoginUsers         []EnvUser   `json:"login_users"`
+	MockMode           bool        `json:"mock_mode"`
 }
 
 func (e *Env) validate() error {
@@ -96,14 +97,24 @@ func main() {
 		credentials = append(credentials, server.toCredArg(false))
 	}
 
-	err = api.SetCredentials(credentials)
-	if err != nil {
-		log.Fatal(err)
+	// Turn on mock mode by default
+	api.SetMockMode()
+
+	if !env.MockMode {
+		err = api.SetCredentials(credentials)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println("credentials set")
+		fmt.Println("testing connections..")
+		testServerConnections(api)
+		fmt.Println("connected to RTCV")
+	} else {
+		fmt.Println("In mock mode")
+		fmt.Println("You can turn this off in by setting mock_mode to false in your env.json")
 	}
-	fmt.Println("credentials set")
-	fmt.Println("testing connections..")
-	testServerConnections(api)
-	fmt.Println("connected to RTCV")
+
 	fmt.Println("running scraper..")
 
 	if len(os.Args) <= 1 {
