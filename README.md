@@ -48,7 +48,7 @@ Check file:///.../denoexample.ts
 # Install latest version
 go install github.com/script-development/rtcv_scraper_client/v2@latest
 # Install a specific version
-go install github.com/script-development/rtcv_scraper_client/v2@v2.1.0
+go install github.com/script-development/rtcv_scraper_client/v2@v2.2.0
 ```
 
 ### *2.* Obtain a `env.json`
@@ -68,7 +68,7 @@ Create a `env.json` file with the following content **(this file can also be obt
         {"username": "scraping-site-username", "password": "scraping-site-password"}
     ],
     // For production, set mock_mode to false
-    // "mock_mode": false 
+    // "mock_mode": false
 }
 ```
 
