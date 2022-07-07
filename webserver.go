@@ -2,13 +2,16 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
+	"net"
+	"strings"
 	"time"
 
 	"github.com/valyala/fasthttp"
 )
 
-func startWebserver(env Env, api *API) {
+func startWebserver(env Env, api *API) string {
 	loginUsers, err := json.Marshal(env.LoginUsers)
 	if err != nil {
 		log.Fatal(err)
@@ -110,9 +113,34 @@ func startWebserver(env Env, api *API) {
 	}
 
 	s := &fasthttp.Server{Handler: requestHandler}
-	err = s.ListenAndServe("127.0.0.1:4400")
-	if err != nil {
-		log.Fatal("Error in ListenAndServe: " + err.Error())
+
+	portAttempt := 4_000
+	for {
+		portAttempt++
+		if portAttempt > 6_000 {
+			// Give up
+			log.Fatal("Could not find a free port to start the webserver")
+		}
+
+		address := fmt.Sprintf("127.0.0.1:%d", portAttempt)
+
+		l, err := net.Listen("tcp4", address)
+		if err != nil {
+			if strings.Contains(err.Error(), "address already in use") {
+				// Retry with a diffrent port
+				continue
+			}
+			log.Fatal("Error in Listen: " + err.Error())
+		}
+
+		go func() {
+			err = s.Serve(l)
+			if err != nil {
+				log.Fatal("Error in Serve: " + err.Error())
+			}
+		}()
+
+		return "http://" + address
 	}
 }
 

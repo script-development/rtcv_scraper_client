@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
-	"time"
 )
 
 // Env contains the structure of the .env file
@@ -90,7 +89,7 @@ func main() {
 	}
 
 	api := NewAPI()
-	go startWebserver(env, api)
+	useAddress := startWebserver(env, api)
 
 	credentials := []SetCredentialsArg{env.PrimaryServer.toCredArg(true)}
 	for _, server := range env.AlternativeServers {
@@ -117,7 +116,7 @@ func main() {
 	}
 
 	scraper := exec.Command(os.Args[1], os.Args[2:]...)
-	scraper.Env = append(os.Environ(), "SCRAPER_ADDRESS=http://localhost:4400")
+	scraper.Env = append(os.Environ(), "SCRAPER_ADDRESS="+useAddress)
 
 	// Piple output of scraper to stdout
 	scraper.Stdin = os.Stdin
@@ -165,15 +164,5 @@ func testServerConnections(api *API) {
 		if !hasScraperRole {
 			log.Fatal("provided key does not have scraper role (nr 1)")
 		}
-	}
-
-	referenceNrs := []string{}
-	err := api.connections[api.primaryConnection].Get("/api/v1/scraper/scannedReferenceNrs/since/days/30", &referenceNrs)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, nr := range referenceNrs {
-		api.SetCacheEntry(nr, time.Hour*72) // 3 days
 	}
 }
