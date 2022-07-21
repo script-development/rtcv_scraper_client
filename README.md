@@ -48,7 +48,7 @@ Check file:///.../denoexample.ts
 # Install latest version
 go install github.com/script-development/rtcv_scraper_client/v2@latest
 # Install a specific version
-go install github.com/script-development/rtcv_scraper_client/v2@v2.2.0
+go install github.com/script-development/rtcv_scraper_client/v2@v2.3.0
 ```
 
 ### *2.* Obtain a `env.json`
@@ -126,6 +126,16 @@ Check if a reference number is in the cache
 
 - Body: The reference number
 - Resp: **true** / **false**
+
+## `env.json` as env variable?
+
+If you are using containers you might want to use the contents of your `env.json` as env variable instaid of binding it to the container as volume.
+
+You can do that with the following shell variable:
+
+```sh
+export RTCV_SCRAPER_CLIENT_ENV='{}'
+```
 
 ## Deno client docs
 
