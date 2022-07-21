@@ -72,9 +72,17 @@ type EnvUser struct {
 }
 
 func main() {
-	envFile, err := ioutil.ReadFile("env.json")
+	envFilename := "env.json"
+	envEnvName := "RTCV_SCRAPER_CLIENT_ENV"
+	envFile, err := ioutil.ReadFile(envFilename)
 	if err != nil {
-		log.Fatal("unable to read env file, error: " + err.Error())
+		if !os.IsNotExist(err) {
+			log.Fatal("unable to read env file, error: " + err.Error())
+		}
+		envFile = []byte(os.Getenv(envEnvName))
+		if len(envFile) == 0 {
+			log.Fatalf("no %s file or %s envourment variable found, cannot continue", envFilename, envEnvName)
+		}
 	}
 
 	env := Env{}
