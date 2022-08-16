@@ -63,12 +63,24 @@ Create a `env.json` file with the following content **(this file can also be obt
     },
     "alternative_servers": [
         // If you want to send CVs to multiple servers you can add additional servers here
+        // {"server_location": "http://localhost:4000","api_key_id": "aa","api_key": "bbb"}
     ],
-    "login_users": [
-        {"username": "scraping-site-username", "password": "scraping-site-password"}
+}
+```
+
+#### `2.1.` Mocking RTCV
+
+When developing a scraper you might want to mock RT-CV so you don't have to relay on another service.
+
+You can mock RT-CV by changing your env to this:
+
+```js
+{
+    "mock_mode": true,
+    "mock_users": [
+        // Here you place the login users for the site you are scraping that will be used as mock data
+        {"username": "scraping-site-username", "password": "scraping-site-password"},
     ],
-    // For production, set mock_mode to false
-    // "mock_mode": false
 }
 ```
 
@@ -99,7 +111,7 @@ Sends a cv to rtcv and remembers the reference number
 
 ### `$SCRAPER_ADDRESS/users`
 
-Returns the login users from the `env.json`
+Returns the login scraper users from RT-CV
 
 - Body: None
 - Resp: **true** / **false** the login users from env.json
@@ -126,6 +138,14 @@ Check if a reference number is in the cache
 
 - Body: The reference number
 - Resp: **true** / **false**
+
+## `env.json` is in another dir or has another name?
+
+You can change the credentials file location using this shell variable
+
+```sh
+export RTCV_SCRAPER_CLIENT_ENV_FILE=some/other/env/file.json
+```
 
 ## `env.json` as env variable?
 

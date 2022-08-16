@@ -11,8 +11,8 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func startWebserver(env Env, api *API) string {
-	loginUsers, err := json.Marshal(env.LoginUsers)
+func startWebserver(env Env, api *API, loginUsers []EnvUser) string {
+	loginUsersJSON, err := json.Marshal(loginUsers)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func startWebserver(env Env, api *API) string {
 
 			ctx.Response.AppendBodyString("true")
 		case "/users":
-			ctx.Response.AppendBody(loginUsers)
+			ctx.Response.AppendBody(loginUsersJSON)
 		case "/set_cached_reference", "/set_short_cached_reference":
 			refNr := string(ctx.Request.Body())
 			if refNr == "" {

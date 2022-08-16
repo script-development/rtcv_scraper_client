@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"sync"
 	"syscall"
 )
 
@@ -15,11 +16,22 @@ import (
 type Env struct {
 	PrimaryServer      EnvServer   `json:"primary_server"`
 	AlternativeServers []EnvServer `json:"alternative_servers"`
-	LoginUsers         []EnvUser   `json:"login_users"`
 	MockMode           bool        `json:"mock_mode"`
+	MockUsers          []EnvUser   `json:"mock_users"`
 }
 
 func (e *Env) validate() error {
+	if e.MockMode {
+		if len(e.MockUsers) == 0 {
+			fmt.Println("\"mock_users\" is empty in env.json, most scrapers require at least one user to login.")
+			fmt.Println("For documentation about mocking see https://github.com/script-development/rtcv_scraper_client")
+			if e.MockUsers == nil {
+				e.MockUsers = []EnvUser{}
+			}
+		}
+		return nil
+	}
+
 	err := e.PrimaryServer.validate()
 	if err != nil {
 		return fmt.Errorf("primary_server.%s", err.Error())
@@ -73,6 +85,11 @@ type EnvUser struct {
 
 func main() {
 	envFilename := "env.json"
+	alternativeFileName := os.Getenv("RTCV_SCRAPER_CLIENT_ENV_FILE")
+	if alternativeFileName != "" {
+		envFilename = alternativeFileName
+	}
+
 	envEnvName := "RTCV_SCRAPER_CLIENT_ENV"
 	envFile, err := ioutil.ReadFile(envFilename)
 	if err != nil {
@@ -97,16 +114,13 @@ func main() {
 	}
 
 	api := NewAPI()
-	useAddress := startWebserver(env, api)
 
 	credentials := []SetCredentialsArg{env.PrimaryServer.toCredArg(true)}
 	for _, server := range env.AlternativeServers {
 		credentials = append(credentials, server.toCredArg(false))
 	}
 
-	// Turn on mock mode by default
-	api.SetMockMode()
-
+	loginUsers := []EnvUser{}
 	if !env.MockMode {
 		err = api.SetCredentials(credentials)
 		if err != nil {
@@ -115,12 +129,16 @@ func main() {
 
 		fmt.Println("credentials set")
 		fmt.Println("testing connections..")
-		testServerConnections(api)
+		loginUsers = testServerConnections(api, credentials[0].APIKeyID)
 		fmt.Println("connected to RTCV")
 	} else {
+		api.SetMockMode()
+		loginUsers = env.MockUsers
 		fmt.Println("In mock mode")
-		fmt.Println("You can turn this off in by setting mock_mode to false in your env.json")
+		fmt.Println("You can turn this off in `env.json` by setting `mock_mode` to false")
 	}
+
+	useAddress := startWebserver(env, api, loginUsers)
 
 	fmt.Println("running scraper..")
 
@@ -147,32 +165,53 @@ func main() {
 	}
 }
 
-func testServerConnections(api *API) {
+func testServerConnections(api *API, apiKeyID string) []EnvUser {
+	var wg sync.WaitGroup
+
 	for _, conn := range api.connections {
-		err := conn.Get("/api/v1/health", nil)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		apiKeyInfo := struct {
-			Roles []struct {
-				Role uint64 `json:"role"`
-			} `json:"roles"`
-		}{}
-		err = conn.Get("/api/v1/auth/keyinfo", &apiKeyInfo)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		hasScraperRole := false
-		for _, role := range apiKeyInfo.Roles {
-			if role.Role == 1 {
-				hasScraperRole = true
-				break
+		wg.Add(1)
+		go func(conn serverConn) {
+			err := conn.Get("/api/v1/health", nil)
+			if err != nil {
+				log.Fatal(err)
 			}
-		}
-		if !hasScraperRole {
-			log.Fatal("provided key does not have scraper role (nr 1)")
-		}
+
+			apiKeyInfo := struct {
+				Roles []struct {
+					Role uint64 `json:"role"`
+				} `json:"roles"`
+			}{}
+			err = conn.Get("/api/v1/auth/keyinfo", &apiKeyInfo)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			hasScraperRole := false
+			for _, role := range apiKeyInfo.Roles {
+				if role.Role == 1 {
+					hasScraperRole = true
+					break
+				}
+			}
+			if !hasScraperRole {
+				log.Fatal("provided key does not have scraper role (nr 1)")
+			}
+			wg.Done()
+		}(conn)
 	}
+
+	scraperUsers := struct {
+		Users []EnvUser `json:"users"`
+	}{}
+	err := api.connections[0].Get("/api/v1/scraperUsers/"+apiKeyID, &scraperUsers)
+
+	// Wait for the connections above to complete checking before we do this error check but do the request already so we don't have to wait for that
+	// If one of the connections has an error they will throw
+	wg.Wait()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return scraperUsers.Users
 }
