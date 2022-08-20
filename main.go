@@ -10,6 +10,8 @@ import (
 	"os/exec"
 	"sync"
 	"syscall"
+
+	"github.com/script-development/rtcv_scraper_client/v2/crypto"
 )
 
 // Env contains the structure of the .env file
@@ -23,8 +25,8 @@ type Env struct {
 func (e *Env) validate() error {
 	if e.MockMode {
 		if len(e.MockUsers) == 0 {
-			fmt.Println("\"mock_users\" is empty in env.json, most scrapers require at least one user to login.")
-			fmt.Println("For documentation about mocking see https://github.com/script-development/rtcv_scraper_client")
+			fmt.Println(`"mock_users" is empty in env.json, most scrapers require at least one user to login.`)
+			fmt.Println(`For documentation about mocking see https://github.com/script-development/rtcv_scraper_client`)
 			if e.MockUsers == nil {
 				e.MockUsers = []EnvUser{}
 			}
@@ -32,13 +34,13 @@ func (e *Env) validate() error {
 		return nil
 	}
 
-	err := e.PrimaryServer.validate()
+	err := e.PrimaryServer.validate(true)
 	if err != nil {
 		return fmt.Errorf("primary_server.%s", err.Error())
 	}
 
 	for idx, server := range e.AlternativeServers {
-		err := server.validate()
+		err := server.validate(false)
 		if err != nil {
 			return fmt.Errorf("%s[%d].%s", "alternative_servers", idx, err.Error())
 		}
@@ -52,9 +54,11 @@ type EnvServer struct {
 	ServerLocation string `json:"server_location"`
 	APIKeyID       string `json:"api_key_id"`
 	APIKey         string `json:"api_key"`
+	PrivateKey     string `json:"private_key"`
+	PublicKey      string `json:"public_key"`
 }
 
-func (e *EnvServer) validate() error {
+func (e *EnvServer) validate(isPrimary bool) error {
 	if e.ServerLocation == "" {
 		return errors.New("server_location is required")
 	}
@@ -63,6 +67,23 @@ func (e *EnvServer) validate() error {
 	}
 	if e.APIKey == "" {
 		return errors.New("api_key is required")
+	}
+	if isPrimary {
+		if e.PrivateKey == "" && e.PublicKey == "" {
+			return errors.New(`"public_key" and "private_key" required by "primary_server"`)
+		} else if e.PrivateKey == "" {
+			return errors.New(`"private_key" required by "primary_server"`)
+		} else if e.PublicKey == "" {
+			return errors.New(`"public_key" required by "primary_server"`)
+		}
+	} else {
+		if e.PrivateKey != "" && e.PublicKey != "" {
+			fmt.Println("WARN: public_key and private_key pairs are not used by alternative servers")
+		} else if e.PrivateKey != "" {
+			fmt.Println("WARN: private_key not used by alternative servers")
+		} else if e.PublicKey != "" {
+			fmt.Println("WARN: public_key not used by alternative servers")
+		}
 	}
 
 	return nil
@@ -79,8 +100,9 @@ func (e *EnvServer) toCredArg(isPrimary bool) SetCredentialsArg {
 
 // EnvUser contains the structure of the login_users inside the .env file
 type EnvUser struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Username          string `json:"username"`
+	Password          string `json:"password"`
+	EncryptedPassword string `json:"encryptedPassword,omitempty"`
 }
 
 func main() {
@@ -120,16 +142,17 @@ func main() {
 		credentials = append(credentials, server.toCredArg(false))
 	}
 
-	loginUsers := []EnvUser{}
+	var loginUsers []EnvUser
 	if !env.MockMode {
 		err = api.SetCredentials(credentials)
 		if err != nil {
 			log.Fatal(err)
 		}
+		decryptionKey := crypto.LoadAndVerivyKeys(env.PrimaryServer.PublicKey, env.PrimaryServer.PrivateKey)
 
 		fmt.Println("credentials set")
 		fmt.Println("testing connections..")
-		loginUsers = testServerConnections(api, credentials[0].APIKeyID)
+		loginUsers = testServerConnections(api, credentials[0].APIKeyID, decryptionKey)
 		fmt.Println("connected to RTCV")
 	} else {
 		api.SetMockMode()
@@ -165,7 +188,7 @@ func main() {
 	}
 }
 
-func testServerConnections(api *API, apiKeyID string) []EnvUser {
+func testServerConnections(api *API, apiKeyID string, decryptionKey *crypto.Key) []EnvUser {
 	var wg sync.WaitGroup
 
 	for _, conn := range api.connections {
@@ -201,17 +224,38 @@ func testServerConnections(api *API, apiKeyID string) []EnvUser {
 	}
 
 	scraperUsers := struct {
-		Users []EnvUser `json:"users"`
+		ScraperPublicKey string    `json:"scraperPubKey"`
+		Users            []EnvUser `json:"users"`
 	}{}
 	err := api.connections[0].Get("/api/v1/scraperUsers/"+apiKeyID, &scraperUsers)
-
-	// Wait for the connections above to complete checking before we do this error check but do the request already so we don't have to wait for that
-	// If one of the connections has an error they will throw
-	wg.Wait()
-
 	if err != nil {
+		// Wait for the connections above to complete checking before we do this error check but do the request already so we don't have to wait for that
+		// If one of the connections has an error they will throw
+		wg.Wait()
 		log.Fatal(err)
 	}
 
-	return scraperUsers.Users
+	if scraperUsers.ScraperPublicKey != "" && scraperUsers.ScraperPublicKey != decryptionKey.PublicBase64 {
+		log.Fatal("the env.json provided contains a diffrent public key than registered in RTCV, scraper users won't be able to be decrypted")
+	}
+
+	loginUsers := []EnvUser{}
+	for _, user := range scraperUsers.Users {
+		if user.EncryptedPassword != "" {
+			user.Password, err = decryptionKey.DecryptScraperPassword(user.EncryptedPassword)
+			if err != nil {
+				log.Fatal("unable to decrypt password for user " + user.Username + ", error: " + err.Error())
+			}
+			loginUsers = append(loginUsers, user)
+		} else if user.Password != "" {
+			loginUsers = append(loginUsers, user)
+		} else {
+			fmt.Println("WARN: unusable login user", user.Username)
+		}
+		loginUsers = append(loginUsers, user)
+	}
+
+	wg.Wait()
+
+	return loginUsers
 }
