@@ -156,7 +156,3 @@ You can do that with the following shell variable:
 ```sh
 export RTCV_SCRAPER_CLIENT_ENV='{}'
 ```
-
-## Deno client docs
-
-[click here](./DENO_README.md)
