@@ -20,15 +20,11 @@ func main() {
 	fmt.Println(priv)
 
 	fmt.Println()
-	fmt.Println("Add them here your scrapers `env.json` file using")
+	fmt.Println("Add them like so to your scraper's `env.json`")
 	envAddition, _ := json.MarshalIndent(map[string]any{
-		"primary_server": map[string]string{
-			"server_location": "..",
-			"api_key_id":      "..",
-			"api_key":         "..",
-			"private_key":     priv,
-			"public_key":      pub,
-		},
+		"private_key":    priv,
+		"public_key":     pub,
+		"primary_server": map[string]string{},
 	}, "", "  ")
 	fmt.Println(string(envAddition))
 

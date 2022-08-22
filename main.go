@@ -16,6 +16,8 @@ import (
 
 // Env contains the structure of the .env file
 type Env struct {
+	PrivateKey         string      `json:"private_key"`
+	PublicKey          string      `json:"public_key"`
 	PrimaryServer      EnvServer   `json:"primary_server"`
 	AlternativeServers []EnvServer `json:"alternative_servers"`
 	MockMode           bool        `json:"mock_mode"`
@@ -34,16 +36,25 @@ func (e *Env) validate() error {
 		return nil
 	}
 
-	err := e.PrimaryServer.validate(true)
+	err := e.PrimaryServer.validate()
 	if err != nil {
 		return fmt.Errorf("primary_server.%s", err.Error())
 	}
 
 	for idx, server := range e.AlternativeServers {
-		err := server.validate(false)
+		err := server.validate()
 		if err != nil {
 			return fmt.Errorf("%s[%d].%s", "alternative_servers", idx, err.Error())
 		}
+	}
+
+	keyPairHelpMsg := `, use the go program inside the "gen_key" folder to generate a key pair`
+	if e.PrivateKey == "" && e.PublicKey == "" {
+		return errors.New(`"public_key" and "private_key" are required` + keyPairHelpMsg)
+	} else if e.PrivateKey == "" {
+		return errors.New(`"private_key" required` + keyPairHelpMsg)
+	} else if e.PublicKey == "" {
+		return errors.New(`"public_key" required` + keyPairHelpMsg)
 	}
 
 	return nil
@@ -54,11 +65,9 @@ type EnvServer struct {
 	ServerLocation string `json:"server_location"`
 	APIKeyID       string `json:"api_key_id"`
 	APIKey         string `json:"api_key"`
-	PrivateKey     string `json:"private_key"`
-	PublicKey      string `json:"public_key"`
 }
 
-func (e *EnvServer) validate(isPrimary bool) error {
+func (e *EnvServer) validate() error {
 	if e.ServerLocation == "" {
 		return errors.New("server_location is required")
 	}
@@ -67,23 +76,6 @@ func (e *EnvServer) validate(isPrimary bool) error {
 	}
 	if e.APIKey == "" {
 		return errors.New("api_key is required")
-	}
-	if isPrimary {
-		if e.PrivateKey == "" && e.PublicKey == "" {
-			return errors.New(`"public_key" and "private_key" required by "primary_server"`)
-		} else if e.PrivateKey == "" {
-			return errors.New(`"private_key" required by "primary_server"`)
-		} else if e.PublicKey == "" {
-			return errors.New(`"public_key" required by "primary_server"`)
-		}
-	} else {
-		if e.PrivateKey != "" && e.PublicKey != "" {
-			fmt.Println("WARN: public_key and private_key pairs are not used by alternative servers")
-		} else if e.PrivateKey != "" {
-			fmt.Println("WARN: private_key not used by alternative servers")
-		} else if e.PublicKey != "" {
-			fmt.Println("WARN: public_key not used by alternative servers")
-		}
 	}
 
 	return nil
@@ -120,7 +112,7 @@ func main() {
 		}
 		envFile = []byte(os.Getenv(envEnvName))
 		if len(envFile) == 0 {
-			log.Fatalf("no %s file or %s envourment variable found, cannot continue", envFilename, envEnvName)
+			log.Fatalf("no %s file or %s environment variable found, cannot continue", envFilename, envEnvName)
 		}
 	}
 
@@ -148,7 +140,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		decryptionKey := crypto.LoadAndVerivyKeys(env.PrimaryServer.PublicKey, env.PrimaryServer.PrivateKey)
+		decryptionKey := crypto.LoadAndVerivyKeys(env.PublicKey, env.PrivateKey)
 
 		fmt.Println("credentials set")
 		fmt.Println("testing connections..")

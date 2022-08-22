@@ -59,12 +59,12 @@ The public and private key pair can be generated using the go program inside the
 
 ```js
 {
+    "private_key": "......",
+    "public_key": "......",
     "primary_server": {
         "server_location": "http://localhost:4000",
         "api_key_id": "aa",
-        "api_key": "bbb",
-        "private_key": "......",
-        "public_key": "......"
+        "api_key": "bbb"
     },
     "alternative_servers": [
         // If you want to send CVs to multiple servers you can add additional servers here
