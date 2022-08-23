@@ -244,7 +244,6 @@ func testServerConnections(api *API, apiKeyID string, decryptionKey *crypto.Key)
 		} else {
 			fmt.Println("WARN: unusable login user", user.Username)
 		}
-		loginUsers = append(loginUsers, user)
 	}
 
 	wg.Wait()
