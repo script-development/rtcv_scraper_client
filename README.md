@@ -161,3 +161,20 @@ You can do that with the following shell variable:
 ```sh
 export RTCV_SCRAPER_CLIENT_ENV='{}'
 ```
+
+## Health check service
+
+For monitoring the health of a scraper you can start a small web service that will only return a 200 if the scraper is running.
+
+```sh
+export RTCV_SCRAPER_CLIENT_HEALTH_CHECK_PORT=2000
+rtcv_scraper_client ..
+```
+
+You should now be able to check if the scraper is running by executing the following command
+
+```sh
+curl -s -D - http://localhost:2000
+# HTTP/1.1 200 OK
+# ...
+```

@@ -2,9 +2,9 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -122,7 +122,7 @@ func startWebserver(env Env, api *API, loginUsers []EnvUser) string {
 			log.Fatal("Could not find a free port to start the webserver")
 		}
 
-		address := fmt.Sprintf("127.0.0.1:%d", portAttempt)
+		address := "127.0.0.1:" + strconv.Itoa(portAttempt)
 
 		l, err := net.Listen("tcp4", address)
 		if err != nil {

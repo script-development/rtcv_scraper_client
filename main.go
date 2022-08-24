@@ -155,6 +155,11 @@ func main() {
 
 	useAddress := startWebserver(env, api, loginUsers)
 
+	healthCheckPort := os.Getenv("RTCV_SCRAPER_CLIENT_HEALTH_CHECK_PORT")
+	if healthCheckPort != "" {
+		go startHealthCheckServer(healthCheckPort)
+	}
+
 	fmt.Println("running scraper..")
 
 	if len(os.Args) <= 1 {
