@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -29,15 +30,9 @@ func startWebserver(env Env, api *API, loginUsers []EnvUser) string {
 				return
 			}
 
-			referenceNrInterf, ok := cvContent["referenceNumber"]
-			if !ok {
-				errorResp(ctx, 400, "referenceNumber field does not exists")
-				return
-			}
-
-			referenceNr, ok := referenceNrInterf.(string)
-			if !ok {
-				errorResp(ctx, 400, "referenceNumber must be a string")
+			referenceNr, err := checkIfCVHasReferenceNr(cvContent)
+			if err != nil {
+				errorResp(ctx, 400, err.Error())
 				return
 			}
 
@@ -72,6 +67,34 @@ func startWebserver(env Env, api *API, loginUsers []EnvUser) string {
 							// Only cache the CVs that where matched to something
 							api.SetCacheEntry(referenceNr, time.Hour*72) // 3 days
 						}
+					}
+				}
+			}
+
+			ctx.Response.AppendBodyString("true")
+		case "/cvs_list":
+			cvsContent := []map[string]interface{}{}
+			err := json.Unmarshal(body, &cvsContent)
+			if err != nil {
+				errorResp(ctx, 400, "invalid CV")
+				return
+			}
+
+			for idx, cv := range cvsContent {
+				_, err := checkIfCVHasReferenceNr(cv)
+				if err != nil {
+					errorResp(ctx, 400, fmt.Sprintf("error in cv with index %d, error: %s", idx, err.Error()))
+					return
+				}
+			}
+
+			if !api.MockMode {
+				body := append(append([]byte(`{"cvs":`), body...), '}')
+				for _, conn := range api.connections {
+					err = conn.Post("/api/v1/scraper/allCVs", json.RawMessage(body), nil)
+					if err != nil {
+						errorResp(ctx, 500, err.Error())
+						return
 					}
 				}
 			}
