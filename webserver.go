@@ -23,20 +23,20 @@ func startWebserver(env Env, api *API, loginUsers []EnvUser) string {
 		body := ctx.Request.Body()
 		switch path {
 		case "/send_cv":
-			cvContent := map[string]interface{}{}
-			err := json.Unmarshal(body, &cvContent)
+			cvForChecking := StrippedCV{}
+			err := json.Unmarshal(body, &cvForChecking)
 			if err != nil {
 				errorResp(ctx, 400, "invalid CV")
 				return
 			}
 
-			referenceNr, err := checkIfCVHasReferenceNr(cvContent)
+			err = cvForChecking.checkRefNr()
 			if err != nil {
 				errorResp(ctx, 400, err.Error())
 				return
 			}
 
-			cacheEntryExists := api.CacheEntryExists(referenceNr)
+			cacheEntryExists := api.CacheEntryExists(cvForChecking.ReferenceNumber)
 			if cacheEntryExists {
 				// Cannot send the same cv twice
 				ctx.Response.AppendBodyString("false")
@@ -45,7 +45,7 @@ func startWebserver(env Env, api *API, loginUsers []EnvUser) string {
 
 			hasMatch := false
 			if api.MockMode {
-				api.SetCacheEntry(referenceNr, time.Hour*72)
+				api.SetCacheEntry(cvForChecking.ReferenceNumber, time.Hour*72)
 				hasMatch = true
 			} else {
 				scanCVBody := json.RawMessage(append(append([]byte(`{"cv":`), body...), '}'))
@@ -65,7 +65,7 @@ func startWebserver(env Env, api *API, loginUsers []EnvUser) string {
 						hasMatch = response.HasMatches
 						if hasMatch {
 							// Only cache the CVs that where matched to something
-							api.SetCacheEntry(referenceNr, time.Hour*72) // 3 days
+							api.SetCacheEntry(cvForChecking.ReferenceNumber, time.Hour*72) // 3 days
 						}
 					}
 				}
@@ -73,25 +73,40 @@ func startWebserver(env Env, api *API, loginUsers []EnvUser) string {
 
 			ctx.Response.AppendBodyString("true")
 		case "/cvs_list":
-			cvsContent := []map[string]interface{}{}
-			err := json.Unmarshal(body, &cvsContent)
+			cvs := []StrippedCVWithOriginal{}
+			err := json.Unmarshal(body, &cvs)
 			if err != nil {
 				errorResp(ctx, 400, "invalid CV")
 				return
 			}
 
-			for idx, cv := range cvsContent {
-				_, err := checkIfCVHasReferenceNr(cv)
+			checkedRefNrs := map[string]struct{}{}
+			for idx := 10; idx >= 0; idx-- {
+				cv := cvs[idx]
+				err := cv.checkRefNr()
 				if err != nil {
 					errorResp(ctx, 400, fmt.Sprintf("error in cv with index %d, error: %s", idx, err.Error()))
 					return
 				}
+
+				_, ok := checkedRefNrs[cv.ReferenceNumber]
+				if ok {
+					// Remove this cv as it's a duplicate of another one in the list
+					cvs = append(cvs[:idx], cvs[idx+1:]...)
+					continue
+				}
+				checkedRefNrs[cv.ReferenceNumber] = struct{}{}
+
+				if cv.checkMustHaveValidZip() != nil {
+					// Remove this cv from the list as it does not have a valid zip code
+					cvs = append(cvs[:idx], cvs[idx+1:]...)
+					continue
+				}
 			}
 
 			if !api.MockMode {
-				body := append(append([]byte(`{"cvs":`), body...), '}')
 				for _, conn := range api.connections {
-					err = conn.Post("/api/v1/scraper/allCVs", json.RawMessage(body), nil)
+					err = conn.Post("/api/v1/scraper/allCVs", map[string]any{"cvs": cvs}, nil)
 					if err != nil {
 						errorResp(ctx, 500, err.Error())
 						return
