@@ -143,6 +143,21 @@ func startWebserver(env Env, api *API, loginUsers []EnvUser) string {
 			} else {
 				ctx.Response.AppendBodyString("false")
 			}
+		case "/server_response":
+			api.WebsocketResp <- ctx.Request.Body()
+			ctx.Response.AppendBodyString("true")
+		case "/server_request":
+			// Cancel previous calls to this endpoint
+			// There seems to be no way in fasthttp to check if the client has disconnected and thus the channel might be open forever
+			// This is a bit of a dirty hack but it works we just cancel all previous calls to this endpoint when a new one is made
+			api.CancelPreviouseCommunication()
+
+			select {
+			case <-api.CancelPreviouseCommunicationChan:
+				errorResp(ctx, 400, "a new request has been opened")
+			case req := <-api.WebsocketReq:
+				ctx.Response.AppendBody(req)
+			}
 		default:
 			errorResp(ctx, 404, "404 not found")
 			return

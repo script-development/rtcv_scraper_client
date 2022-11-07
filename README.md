@@ -1,6 +1,6 @@
 # RT-CV scraper client
+A helper program that aims to ease the communication between a scraper and [RT-CV](https://bitbucket.org/teamscript/rt-cv)
 
-A helper program that aims to ease the communication between a scraper and [RT-CV](https://github.com/script-development/RT-CV)
 
 ## How does this work?
 
@@ -143,6 +143,42 @@ Check if a reference number is in the cache
 
 - Body: The reference number
 - Resp: **true** / **false**
+
+### `$SCRAPER_ADDRESS/server_request`
+
+This route only response when once rt-cv has a request for the scraper.
+
+This url should be called continously by the scraper and should have no request timeout as this request might take hours to before RT-CV sends a request.
+
+- Resp: a request for something by RT-CV
+
+The request and respones are defined in [bitbucket.org/teamscript/rt-cv > /controller/scraperWebsocket/README.md](https://bitbucket.org/teamscript/rt-cv/src/main/controller/scraperWebsocket/README.md)
+
+```jsonc
+{
+  "type": "message type",
+  "id": "message id",
+  "data": {} // Change this
+}
+```
+
+### `$SCRAPER_ADDRESS/server_response`
+
+You should send a response to `/server_request` to this url
+
+- Body: Almost equal to the response of `/server_request` but with the data changed to what RT-CV expected
+
+The request and respones are defined in [bitbucket.org/teamscript/rt-cv > /controller/scraperWebsocket/README.md](https://bitbucket.org/teamscript/rt-cv/src/main/controller/scraperWebsocket/README.md)
+
+```jsonc
+{
+  "type": "message type",
+  "id": "message id",
+  "data": {} // Change this
+}
+```
+
+- Resp: **true**
 
 ## `env.json` is in another dir or has another name?
 
