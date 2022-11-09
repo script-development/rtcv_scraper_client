@@ -10,7 +10,9 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -32,7 +34,8 @@ type API struct {
 
 	CancelPreviouseCommunicationChan chan struct{}
 	WebsocketReq                     chan []byte
-	WebsocketResp                    chan []byte
+	WebsocketRespLock                sync.Mutex
+	WebsocketResp                    []chan []byte
 
 	Cache map[string]time.Time
 }
@@ -42,7 +45,7 @@ func NewAPI() *API {
 	return &API{
 		CancelPreviouseCommunicationChan: make(chan struct{}),
 		WebsocketReq:                     make(chan []byte),
-		WebsocketResp:                    make(chan []byte),
+		WebsocketResp:                    []chan []byte{},
 
 		Cache: map[string]time.Time{},
 	}
@@ -251,19 +254,62 @@ type WSMsg[T any] struct {
 	Data T      `json:"data"`
 }
 
-// ConnectToWS connects to the rtcv websocket
-func (a *API) ConnectToWS() {
+// HandleWebsocketResponse handles a websocket response
+// This decodes the payload and checks to which connected websocket it should be sent
+func (a *API) HandleWebsocketResponse(payload []byte) {
 	if a.MockMode {
-		go func() {
-			for {
-				resp := <-a.WebsocketResp
-				fmt.Println("got websocket response but we are in mock mode", string(resp))
-			}
-		}()
 		return
 	}
 
-	server := a.connections[0]
+	data := WSMsg[json.RawMessage]{}
+	err := json.Unmarshal(payload, &data)
+	if err != nil {
+		fmt.Println("error un-marshaling websocket response, error:", err)
+		return
+	}
+
+	idParts := strings.SplitN(data.ID, "-", 2)
+	if len(idParts) != 2 {
+		fmt.Println("error invalid id in websocket response, expected 2 parts but got 1")
+		return
+	}
+
+	idx, err := strconv.Atoi(idParts[0])
+	if err != nil {
+		fmt.Println("error invalid id connection index in websocket response, error:", err)
+		return
+	}
+
+	data.ID = idParts[1]
+
+	// Re-encode data with the new ID
+	payload, err = json.Marshal(data)
+	if err != nil {
+		fmt.Println("error marshaling websocket response, error:", err)
+		return
+	}
+
+	a.WebsocketRespLock.Lock()
+	// Data sending of the channel is thread safe but fething the array index is not hence why we lock WebsocketRespLock
+	a.WebsocketResp[idx] <- payload
+	a.WebsocketRespLock.Unlock()
+}
+
+// ConnectToAllWebsockets connects to all the conenctions their websocket
+func (a *API) ConnectToAllWebsockets() {
+	if a.MockMode {
+		return
+	}
+
+	a.WebsocketResp = make([]chan []byte, len(a.connections))
+	for idx := 0; idx < len(a.connections); idx++ {
+		go a.connectToWS(idx)
+	}
+}
+
+// connectToWS connects to the rtcv websocket
+func (a *API) connectToWS(idx int) {
+	server := a.connections[idx]
 
 	url := server.serverLocation
 	url = strings.Replace(url, "http://", "ws://", 1)
@@ -277,17 +323,22 @@ func (a *API) ConnectToWS() {
 		}
 	}()
 
-	go func() {
+	a.WebsocketRespLock.Lock()
+	a.WebsocketResp[idx] = make(chan []byte)
+	listenChan := &a.WebsocketResp[idx]
+	a.WebsocketRespLock.Unlock()
+
+	go func(ws *chan []byte) {
 		for {
 			// TODO: if the response fails to send data might get lost.
 			//   It would be nice if the response is retried when WriteMessage fails
-			resp := <-a.WebsocketResp
+			resp := <-a.WebsocketResp[idx]
 			err := c.WriteMessage(1, resp)
 			if err != nil {
 				fmt.Println("unable to write ws response:", err)
 			}
 		}
-	}()
+	}(listenChan)
 
 	firstMessage := true
 	var aMessageWasHandled atomic.Bool
@@ -314,7 +365,17 @@ func (a *API) ConnectToWS() {
 			msg := WSMsg[json.RawMessage]{}
 			err = json.Unmarshal(msgBytes, &msg)
 			if err != nil {
-				fmt.Println("error unmarshaling web socket message:", err)
+				fmt.Println("error un-marshaling web socket message:", err)
+				continue
+			}
+
+			// We inject the index of the server connection into the message id so we know where to send the response to later
+			// See the /server_response for how we handle the response
+			msg.ID = fmt.Sprintf("%d-%s", idx, msg.ID)
+
+			msgBytes, err = json.Marshal(msg)
+			if err != nil {
+				fmt.Println("error marshaling web socket message:", err)
 				continue
 			}
 

@@ -69,7 +69,7 @@ func main() {
 		fmt.Println("You can turn this off in `env.json` by setting `mock_mode` to false")
 	}
 
-	go api.ConnectToWS()
+	api.ConnectToAllWebsockets()
 	useAddress := startWebserver(env, api, loginUsers)
 
 	healthCheckPort := os.Getenv("RTCV_SCRAPER_CLIENT_HEALTH_CHECK_PORT")

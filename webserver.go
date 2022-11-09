@@ -144,7 +144,11 @@ func startWebserver(env Env, api *API, loginUsers []EnvUser) string {
 				ctx.Response.AppendBodyString("false")
 			}
 		case "/server_response":
-			api.WebsocketResp <- ctx.Request.Body()
+			if api.MockMode {
+				ctx.Response.AppendBodyString("false")
+			}
+
+			api.HandleWebsocketResponse(ctx.Request.Body())
 			ctx.Response.AppendBodyString("true")
 		case "/server_request":
 			// Cancel previous calls to this endpoint
