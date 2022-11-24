@@ -329,13 +329,22 @@ func (a *API) connectToWS(idx int) {
 	a.WebsocketRespLock.Unlock()
 
 	go func(ws *chan []byte) {
+		// Send keep alive messages every 20 seconds
+		// There is at least one proxy service in our cluster that closes the connection after 30 seconds of inactivity
+		// This is to prevent the connection beeing closed
+		keepAliveTicker := time.NewTicker(time.Second * 20)
+		keepAliveBody := []byte("pnig")
 		for {
-			// TODO: if the response fails to send data might get lost.
-			//   It would be nice if the response is retried when WriteMessage fails
-			resp := <-a.WebsocketResp[idx]
-			err := c.WriteMessage(1, resp)
-			if err != nil {
-				fmt.Println("unable to write ws response:", err)
+			select {
+			case <-keepAliveTicker.C:
+				c.WriteMessage(websocket.PingMessage, keepAliveBody)
+			case resp := <-a.WebsocketResp[idx]:
+				// TODO: if the response fails to send data might get lost.
+				//   It would be nice if the response is retried when WriteMessage fails
+				err := c.WriteMessage(1, resp)
+				if err != nil {
+					fmt.Println("unable to write ws response:", err)
+				}
 			}
 		}
 	}(listenChan)
