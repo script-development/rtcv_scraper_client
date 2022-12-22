@@ -120,31 +120,68 @@ func (a *API) SetCredentials(credentialsList []SetCredentialsArg) error {
 }
 
 // Get makes a get request to RT-CV
-func (c *serverConn) Get(path string, unmarshalResInto interface{}) error {
-	return c.DoRequest("GET", path, nil, unmarshalResInto)
-}
-
-// Post makes a post request to RT-CV
-func (c *serverConn) Post(path string, body interface{}, unmarshalResInto interface{}) error {
-	return c.DoRequest("POST", path, body, unmarshalResInto)
-}
-
-// DoRequest makes a http request to RT-CV
-func (c *serverConn) DoRequest(method, path string, body, unmarshalResInto interface{}) error {
-	var reqBody io.ReadCloser
-	if body != nil {
-		reqBodyBytes, err := json.Marshal(body)
-		if err != nil {
-			return err
-		}
-		reqBody = ioutil.NopCloser(bytes.NewBuffer(reqBodyBytes))
-	}
-	req, err := http.NewRequest(method, c.serverLocation+path, reqBody)
+func (c *serverConn) Get(path string, unmarshalResInto any) error {
+	req, err := c.prepairJSONReq("GET", path, nil)
 	if err != nil {
 		return err
 	}
 
+	return c.DoRequest(req, unmarshalResInto)
+}
+
+// Post makes a post request to RT-CV
+func (c *serverConn) Post(path string, body any, unmarshalResInto any) error {
+	req, err := c.prepairJSONReq("POST", path, body)
+	if err != nil {
+		return err
+	}
+
+	return c.DoRequest(req, unmarshalResInto)
+}
+
+func (c *serverConn) prepairJSONReq(method, path string, body any) (*http.Request, error) {
+	var reqBody io.ReadCloser
+	if body != nil {
+		reqBodyBytes, err := json.Marshal(body)
+		if err != nil {
+			return nil, err
+		}
+		reqBody = ioutil.NopCloser(bytes.NewBuffer(reqBodyBytes))
+	}
+
+	req, err := http.NewRequest(method, c.serverLocation+path, reqBody)
+	if err != nil {
+		return nil, err
+	}
+
 	req.Header.Add("Content-Type", "application/json")
+
+	return req, err
+}
+
+// Post makes a post request to RT-CV with formdata instaid of json data
+func (c *serverConn) PostFormData(path string, form io.Reader, boundry string, unmarshalResInto any) error {
+	req, err := c.prepairFormReq("POST", path, form, boundry)
+	if err != nil {
+		return err
+	}
+
+	return c.DoRequest(req, unmarshalResInto)
+}
+
+func (c *serverConn) prepairFormReq(method, path string, body io.Reader, boundry string) (*http.Request, error) {
+	req, err := http.NewRequest(method, c.serverLocation+path, body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", "multipart/form-data; boundary="+boundry)
+
+	return req, err
+}
+
+// DoRequest makes a http request to RT-CV
+func (c *serverConn) DoRequest(req *http.Request, unmarshalResInto any) error {
 	if c.authHeaderValue != "" {
 		req.Header.Add("Authorization", c.authHeaderValue)
 	}

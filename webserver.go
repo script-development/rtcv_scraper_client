@@ -20,11 +20,14 @@ func startWebserver(env Env, api *API, loginUsers []EnvUser) string {
 
 	requestHandler := func(ctx *fasthttp.RequestCtx) {
 		path := string(ctx.Path())
-		body := ctx.Request.Body()
+		body := func() []byte {
+			return ctx.Request.Body()
+		}
+
 		switch path {
 		case "/send_cv":
 			cvForChecking := StrippedCV{}
-			err := json.Unmarshal(body, &cvForChecking)
+			err := json.Unmarshal(body(), &cvForChecking)
 			if err != nil {
 				errorResp(ctx, 400, "invalid CV")
 				return
@@ -48,7 +51,7 @@ func startWebserver(env Env, api *API, loginUsers []EnvUser) string {
 				api.SetCacheEntry(cvForChecking.ReferenceNumber, time.Hour*72)
 				hasMatch = true
 			} else {
-				scanCVBody := json.RawMessage(append(append([]byte(`{"cv":`), body...), '}'))
+				scanCVBody := json.RawMessage(append(append([]byte(`{"cv":`), body()...), '}'))
 
 				for idx, conn := range api.connections {
 					var response struct {
@@ -72,9 +75,42 @@ func startWebserver(env Env, api *API, loginUsers []EnvUser) string {
 			}
 
 			ctx.Response.AppendBodyString("true")
+		case "/send_full_cv":
+			send, cv, err := parseSendFullCvRequest(&ctx.Request)
+			if err != nil {
+				errorResp(ctx, 400, err.Error())
+				return
+			}
+
+			hasMatch := false
+			if api.MockMode {
+				api.SetCacheEntry(cv.ReferenceNumber, time.Hour*72)
+				hasMatch = true
+			} else {
+				for idx, conn := range api.connections {
+					var response struct {
+						HasMatches bool `json:"hasMatches"`
+					}
+
+					err = send(conn, &response)
+					if err != nil {
+						errorResp(ctx, 500, err.Error())
+						return
+					}
+
+					if idx == api.primaryConnection {
+						hasMatch = response.HasMatches
+						if hasMatch {
+							// Only cache the CVs that where matched to something
+							api.SetCacheEntry(cv.ReferenceNumber, time.Hour*72) // 3 days
+						}
+					}
+				}
+			}
+			ctx.Response.AppendBodyString("true")
 		case "/cvs_list":
 			cvs := []StrippedCVWithOriginal{}
-			err := json.Unmarshal(body, &cvs)
+			err := json.Unmarshal(body(), &cvs)
 			if err != nil {
 				errorResp(ctx, 400, "invalid CV")
 				return
