@@ -91,9 +91,18 @@ Notes:
 
 ### `$SCRAPER_ADDRESS/send_cv`
 
-Sends a cv to rtcv and remembers the reference number
+Sends a cv to RT-CV and remembers the reference number
 
 - Body: In JSON the cv send to RT-CV
+- Resp: **true** / **false** if the cv was sent to RT-CV
+
+### `$SCRAPER_ADDRESS/send_full_cv`
+
+Send a cv **File** to RT-CV and remembers the reference number
+
+- Body: Multipart form with the following fields
+  - `metadata` (JSON): The same cv data as the `$SCRAPER_ADDRESS/send_cv` and provides some scraped information, preferebly the name and postalcode.
+  - `cv` (Form File): The actual scraped cv file (currently RT-CV only supports PDF files)
 - Resp: **true** / **false** if the cv was sent to RT-CV
 
 ### `$SCRAPER_ADDRESS/users`
