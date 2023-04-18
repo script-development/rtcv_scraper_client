@@ -1,9 +1,79 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+
+	"muzzammil.xyz/jsonc"
 )
+
+var customEnvFileVarName = "RTCV_SCRAPER_CLIENT_ENV_FILE"
+var envAsVarName = "RTCV_SCRAPER_CLIENT_ENV"
+
+func mustReadEnv() Env {
+	envFilename := "env.json"
+	alternativeFileName := os.Getenv(customEnvFileVarName)
+	if alternativeFileName != "" {
+		envFilename = alternativeFileName
+	}
+
+	notFoundErr := func() string {
+		if alternativeFileName != "" {
+			return "no " + alternativeFileName + " file or $" + envAsVarName + " environment variable found, cannot continue"
+		}
+		return "no env.json(c) file or $" + envAsVarName + " environment variable found, cannot continue"
+	}
+
+	envFileBytes, err := ioutil.ReadFile(envFilename)
+	if err == nil {
+		return mustParseEnv(envFileBytes)
+	}
+
+	envFileBytes = []byte(os.Getenv(envAsVarName))
+	if len(envFileBytes) != 0 {
+		return mustParseEnv(envFileBytes)
+	}
+
+	if !os.IsNotExist(err) {
+		log.Fatal("unable to read env file, error: " + err.Error())
+	}
+
+	if alternativeFileName != "" {
+		log.Fatalln(notFoundErr())
+	}
+
+	envFilename = "env.jsonc"
+	envFileBytes, err = ioutil.ReadFile(envFilename)
+	if err != nil {
+		log.Fatalln(notFoundErr())
+	}
+
+	return mustParseEnv(envFileBytes)
+}
+
+func mustParseEnv(b []byte) Env {
+	envJSON := jsonc.ToJSON(b)
+	if !json.Valid(envJSON) {
+		log.Fatal("env file is not valid json or jsonc")
+	}
+
+	env := Env{}
+	err := json.Unmarshal(envJSON, &env)
+	if err != nil {
+		log.Fatal("unable to parse env file, error: " + err.Error())
+	}
+
+	err = env.validate()
+	if err != nil {
+		log.Fatal("validating env failed, error: " + err.Error())
+	}
+
+	return env
+}
 
 // Env contains the structure of an env.json file
 type Env struct {

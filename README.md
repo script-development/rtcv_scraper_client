@@ -55,7 +55,9 @@ go install github.com/script-development/rtcv_scraper_client/v2@v2.3.0
 
 Use [gen-env](https://bitbucket.org/teamscript/cli-tools/src/main/gen-env/) to generate a `env.json` file.
 
-#### `2.1.` Mocking RTCV
+The env.json parser supports jsonc (json with comments) so you can comment out sections if you so desire and even rename the `env.json` to `env.jsonc`.
+
+#### *2.1.* Mocking RTCV
 
 When developing a scraper you might want to mock RT-CV so you don't have to relay on another service.
 

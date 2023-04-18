@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -14,34 +12,7 @@ import (
 )
 
 func main() {
-	envFilename := "env.json"
-	alternativeFileName := os.Getenv("RTCV_SCRAPER_CLIENT_ENV_FILE")
-	if alternativeFileName != "" {
-		envFilename = alternativeFileName
-	}
-
-	envEnvName := "RTCV_SCRAPER_CLIENT_ENV"
-	envFile, err := ioutil.ReadFile(envFilename)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			log.Fatal("unable to read env file, error: " + err.Error())
-		}
-		envFile = []byte(os.Getenv(envEnvName))
-		if len(envFile) == 0 {
-			log.Fatalf("no %s file or %s environment variable found, cannot continue", envFilename, envEnvName)
-		}
-	}
-
-	env := Env{}
-	err = json.Unmarshal(envFile, &env)
-	if err != nil {
-		log.Fatal("unable to parse env file, error: " + err.Error())
-	}
-
-	err = env.validate()
-	if err != nil {
-		log.Fatal("validating env failed, error: " + err.Error())
-	}
+	env := mustReadEnv()
 
 	api := NewAPI()
 
@@ -50,6 +21,7 @@ func main() {
 		credentials = append(credentials, server.toCredArg(false))
 	}
 
+	var err error
 	var loginUsers []EnvUser
 	if !env.MockMode {
 		err = api.SetCredentials(credentials)
